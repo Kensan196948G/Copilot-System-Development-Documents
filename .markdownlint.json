@@ -1,0 +1,36 @@
+{
+  "$schema": "https://raw.githubusercontent.com/DavidAnson/markdownlint/main/schema/markdownlint-config-schema.json",
+  "comment": "Copilot System Development Documents — markdownlint 設定",
+
+  "default": true,
+
+  "MD001": true,
+  "MD003": { "style": "atx" },
+  "MD004": { "style": "dash" },
+  "MD007": { "indent": 2 },
+  "MD009": true,
+  "MD010": true,
+
+  "MD013": {
+    "line_length": 200,
+    "heading_line_length": 200,
+    "code_block_line_length": 200,
+    "tables": false
+  },
+
+  "MD024": { "siblings_only": true },
+  "MD025": true,
+  "MD026": true,
+  "MD029": { "style": "ordered" },
+
+  "MD033": false,
+  "MD034": true,
+  "MD036": false,
+
+  "MD041": false,
+
+  "MD046": { "style": "fenced" },
+  "MD048": { "style": "backtick" },
+  "MD049": { "style": "underscore" },
+  "MD050": { "style": "asterisk" }
+}

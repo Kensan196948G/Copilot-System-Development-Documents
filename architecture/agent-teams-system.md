@@ -161,6 +161,105 @@ All agent instances share the same State Manager and Artifact Store to prevent d
 
 ---
 
+## Mermaid 図: Agent Teams 全体構造
+
+```mermaid
+graph TB
+    O[🎯 Orchestrator Agent<br/>タスク分解・調整]
+
+    O --> AT[📊 Analysis Team]
+    O --> DT[💻 Development Team]
+    O --> QT[✅ Quality Team]
+    O --> RT[🚀 Release Team]
+
+    subgraph AT[Analysis Team]
+        CA[context-agent<br/>コード読解・要約]
+        IA[issue-agent<br/>Issue・PR解析]
+        DA[dependency-agent<br/>依存関係分析]
+        IPA[impact-agent<br/>影響範囲評価]
+    end
+
+    subgraph DT[Development Team]
+        CGA[codegen-agent<br/>コード生成]
+        RFA[refactor-agent<br/>既存コード改善]
+        FXA[fix-agent<br/>エラー修正]
+        MA[migration-agent<br/>マイグレーション]
+        DOCA[docs-agent<br/>ドキュメント生成]
+    end
+
+    subgraph QT[Quality Team]
+        TA[test-agent<br/>テスト実行]
+        LA[lint-agent<br/>静的解析]
+        SA[security-agent<br/>セキュリティ診断]
+        RA[review-agent<br/>コードレビュー]
+        PA[performance-agent<br/>パフォーマンス測定]
+    end
+
+    subgraph RT[Release Team]
+        VRA[version-agent<br/>バージョン管理]
+        CHA[changelog-agent<br/>変更履歴生成]
+        PRA[pr-agent<br/>PR作成・マージ]
+    end
+
+    AT --> |コンテキストパッケージ| DT
+    DT --> |成果物| QT
+    QT --> |承認/否認| RT
+    RT --> |完了通知| O
+```
+
+## Mermaid 図: Agent 間メッセージフロー
+
+```mermaid
+sequenceDiagram
+    participant ORC as Orchestrator
+    participant CA as context-agent
+    participant CGA as codegen-agent
+    participant TA as test-agent
+    participant PRA as pr-agent
+
+    ORC->>CA: タスク分析依頼 {task_id, repo, priority}
+    CA-->>ORC: コンテキストパッケージ {files[], issues[], constraints}
+    ORC->>CGA: コード生成依頼 {context_package, target_files}
+    CGA-->>ORC: 生成結果 {changed_files[], build_status}
+    ORC->>TA: テスト実行依頼 {artifacts, test_command}
+    TA-->>ORC: テスト結果 {pass_count, fail_count, coverage}
+    alt 全テスト通過
+        ORC->>PRA: PR作成依頼 {branch, title, description}
+        PRA-->>ORC: PR URL {pr_number, html_url}
+    else テスト失敗
+        ORC->>CGA: 修正依頼 {error_context, failed_tests}
+    end
+```
+
+## Mermaid 図: カスタムエージェント対応マップ
+
+```mermaid
+graph LR
+    subgraph GitHub[.github/agents/]
+        BA[backend-agent.agent.md]
+        FA[frontend-agent.agent.md]
+        TW[test-writer.agent.md]
+        SEC[security-agent.agent.md]
+        DOC[docs-agent.agent.md]
+    end
+
+    subgraph Teams[Agent Teams ロール対応]
+        DT_CGA[codegen-agent<br/>fix-agent]
+        DT_FA[codegen-agent<br/>UI専門]
+        QT_TA[test-agent]
+        QT_SA[security-agent]
+        DT_DA[docs-agent]
+    end
+
+    BA -->|担当| DT_CGA
+    FA -->|担当| DT_FA
+    TW -->|担当| QT_TA
+    SEC -->|担当| QT_SA
+    DOC -->|担当| DT_DA
+```
+
+---
+
 ## Related Documents
 
 - [Autonomous Development Architecture](autonomous-development-architecture.md)

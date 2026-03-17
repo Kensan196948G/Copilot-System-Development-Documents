@@ -135,6 +135,90 @@ The overall system moves through the following states for each task:
                                         [human_review]
 ```
 
+### Mermaid 状態遷移図
+
+```mermaid
+stateDiagram-v2
+    [*] --> queued : タスク追加
+    queued --> monitoring : Monitor Loop 受信
+    monitoring --> building : コンテキストパッケージ完成
+    monitoring --> human_review : 3回連続ブロック
+    building --> verifying : ビルド成功
+    building --> build_failed : ビルド失敗
+    build_failed --> building : リトライ（最大5回）
+    build_failed --> human_review : リトライ上限超過
+    verifying --> done : 全品質ゲート通過
+    verifying --> verify_failed : テスト/リント失敗
+    verify_failed --> monitoring : 回帰情報を付与して再キュー
+    done --> [*]
+    human_review --> monitoring : 人間がレビュー完了
+```
+
+### Mermaid シーケンス図（1サイクルの流れ）
+
+```mermaid
+sequenceDiagram
+    participant M as Monitor Loop
+    participant B as Build Loop
+    participant V as Verify Loop
+    participant S as State Store
+    participant H as Human Reviewer
+
+    M->>S: タスクキュー読み込み
+    S-->>M: TASK-001 (priority: high)
+    M->>M: コンテキスト収集（関連ファイル・Issue）
+    M->>B: コンテキストパッケージ送信
+    B->>B: Copilot CLI でコード生成
+    B->>B: ビルド実行 (npm run build)
+    alt ビルド成功
+        B->>S: アーティファクト保存
+        B->>V: 検証トリガー送信
+        V->>V: テスト実行 (npm test)
+        V->>V: リント実行 (eslint)
+        V->>V: セキュリティスキャン
+        alt 全ゲート通過
+            V->>S: TASK-001 ステータス = done
+            V->>M: 完了通知
+        else テスト失敗
+            V->>M: 回帰情報付き失敗通知
+            M->>B: 修正コンテキスト付きで再試行
+        end
+    else ビルド失敗（5回超過）
+        B->>H: エスカレーション通知
+        H->>M: 修正指示後に再起動
+    end
+```
+
+### Mermaid タイムライン図（Triple Loop 8H サイクル）
+
+```mermaid
+gantt
+    title Triple Loop 1サイクル（推奨: 8時間）
+    dateFormat HH:mm
+    axisFormat %H:%M
+
+    section Monitor Loop
+    コンテキスト収集      :monitor1, 00:00, 30m
+    タスク優先度付け      :monitor2, after monitor1, 15m
+    コンテキストパッケージ作成 :monitor3, after monitor2, 15m
+
+    section Build Loop
+    コード生成（Attempt 1）:build1, after monitor3, 45m
+    ビルド実行・エラー修正  :build2, after build1, 30m
+    コード生成（Attempt 2） :build3, after build2, 45m
+    最終ビルド確認        :build4, after build3, 15m
+
+    section Verify Loop
+    テスト実行           :verify1, after build4, 30m
+    リント・静的解析      :verify2, after verify1, 20m
+    セキュリティスキャン  :verify3, after verify2, 20m
+    カバレッジレポート    :verify4, after verify3, 15m
+    PR サマリー作成      :verify5, after verify4, 15m
+
+    section 後処理
+    Monitor Loop 再開    :next, after verify5, 60m
+```
+
 ---
 
 ## Configuration

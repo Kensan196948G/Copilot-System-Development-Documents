@@ -12,12 +12,15 @@ AI 自動開発のベストプラクティスを体系的に整理。
 ```
 .
 ├── README.md
-├── .github/agents/        ← カスタムエージェント定義（5種）★新規
-├── templates/             ← コピーしてすぐ使えるテンプレート集 ★新規
-├── architecture/          ← システム設計・アーキテクチャ
+├── CHANGELOG.md           ← 変更履歴（Keep a Changelog形式）★新規
+├── .github/
+│   ├── agents/            ← カスタムエージェント定義（5種）
+│   └── workflows/         ← CI/CD ワークフロー（自動品質チェック）★新規
+├── templates/             ← コピーしてすぐ使えるテンプレート集
+├── architecture/          ← システム設計・アーキテクチャ（Mermaid図付き）
 ├── loops/                 ← 各ループの詳細リファレンス
 ├── operations/            ← 起動ガイド・コマンドリファレンス・運用ガイド
-├── prompts/               ← AI プロンプトテンプレート
+├── prompts/               ← AI プロンプトテンプレート（Monitor/Build/Verify）
 ├── best-practices/        ← 長時間自律セッションのベストプラクティス
 ├── examples/              ← 実セッションのウォークスルー
 └── tasks/                 ← タスク別プロンプトテンプレート（15種類）
@@ -93,6 +96,7 @@ claude --dangerously-skip-permissions
 | ファイル | 内容 |
 |---------|------|
 | [monitor-loop-prompts.md](prompts/monitor-loop-prompts.md) | コンテキスト分析・タスク分解・ヘルスチェック |
+| [build-loop-prompts.md](prompts/build-loop-prompts.md) | コード生成・リファクタ・バグ修正・ビルドエラー修正 ★新規 |
 | [verify-loop-prompts.md](prompts/verify-loop-prompts.md) | テスト分析・カバレッジ・セキュリティ・PR サマリー |
 
 ### ✅ ベストプラクティス（best-practices/）
@@ -163,6 +167,21 @@ Claude Code に渡すタスク別プロンプトテンプレート。
 | 1サイクル8H | `/loop 450m` | 8時間 | 1タスク |
 | Monitor のみ | `/loop 30m` | 30分 | 0（調査のみ） |
 | 単発タスク | `tasks/` テンプレート使用 | 任意 | 任意 |
+
+---
+
+## CI/CD
+
+| ワークフロー | トリガー | 内容 |
+|------------|---------|------|
+| [ci.yml](.github/workflows/ci.yml) | push/PR | Markdown lint・リンクチェック・統計 |
+| [weekly-improvement.yml](.github/workflows/weekly-improvement.yml) | 毎週日曜0時UTC | 週次統計レポートIssue自動生成 |
+
+---
+
+## 変更履歴
+
+詳細は [CHANGELOG.md](CHANGELOG.md) を参照してください。
 
 ---
 
