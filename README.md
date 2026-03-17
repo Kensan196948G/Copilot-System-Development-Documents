@@ -13,8 +13,9 @@ AI 自動開発のベストプラクティスを体系的に整理。
 .
 ├── README.md
 ├── CHANGELOG.md           ← 変更履歴（Keep a Changelog形式）★新規
+├── QUICK-REFERENCE.md     ← Triple Loop チートシート（1ページ）★新規
 ├── .github/
-│   ├── agents/            ← カスタムエージェント定義（5種）
+│   ├── agents/            ← カスタムエージェント定義（7種）★拡充
 │   └── workflows/         ← CI/CD ワークフロー（自動品質チェック）★新規
 ├── templates/             ← コピーしてすぐ使えるテンプレート集
 ├── architecture/          ← システム設計・アーキテクチャ（Mermaid図付き）
@@ -67,9 +68,10 @@ claude --dangerously-skip-permissions
 
 | ファイル | 内容 |
 |---------|------|
-| [triple-loop-architecture.md](architecture/triple-loop-architecture.md) | Triple Loop の全体設計・状態機械・ループ間連携 |
-| [autonomous-development-architecture.md](architecture/autonomous-development-architecture.md) | 自律開発システムの全体アーキテクチャ |
-| [agent-teams-system.md](architecture/agent-teams-system.md) | 8つの Agent チームの役割とメッセージプロトコル |
+| [triple-loop-architecture.md](architecture/triple-loop-architecture.md) | Triple Loop の全体設計・状態機械・Mermaid図 |
+| [autonomous-development-architecture.md](architecture/autonomous-development-architecture.md) | 自律開発システム全体アーキテクチャ・State Manager JSON仕様・Feedback Bus |
+| [agent-teams-system.md](architecture/agent-teams-system.md) | 8つの Agent チームの役割・メッセージプロトコル・Mermaid図 |
+| [claudeos-loop-spec.md](architecture/claudeos-loop-spec.md) | ClaudeOS Auto-Mode Loop完全仕様・安定判定ロジック ★新規 |
 
 ### 🔄 ループリファレンス（loops/）
 
@@ -88,8 +90,9 @@ claude --dangerously-skip-permissions
 | [copilot-start-guide.md](operations/copilot-start-guide.md) | 起動ガイド（CLAUDE.md 配置から放置まで） |
 | [loop-command-usage.md](operations/loop-command-usage.md) | /loop コマンド完全リファレンス |
 | [autonomous-development-workflow.md](operations/autonomous-development-workflow.md) | タスク準備 → Monitor → Build → Verify → 最終処理 |
-| [cost-optimization-guide.md](operations/cost-optimization-guide.md) | プレミアムリクエスト管理・コスト最適化パターン ★新規 |
-| [team-onboarding-guide.md](operations/team-onboarding-guide.md) | 30分クイックスタート・組織設定・チーム運用フロー ★新規 |
+| [cost-optimization-guide.md](operations/cost-optimization-guide.md) | プレミアムリクエスト管理・コスト最適化パターン |
+| [team-onboarding-guide.md](operations/team-onboarding-guide.md) | 30分クイックスタート・組織設定・チーム運用フロー |
+| [troubleshooting-guide.md](operations/troubleshooting-guide.md) | 17エラーパターン・診断コマンド集・ループ再起動手順 ★新規 |
 
 ### 💬 プロンプトテンプレート（prompts/）
 
@@ -106,6 +109,7 @@ claude --dangerously-skip-permissions
 | [autonomous-session-best-practices.md](best-practices/autonomous-session-best-practices.md) | タスク定義・コンテキスト管理・週次運用スケジュール |
 | [copilot-capability-summary.md](best-practices/copilot-capability-summary.md) | Triple Loop 15H 実現可能性サマリー・自律型DevOps |
 | [copilot-maximum-capabilities.md](best-practices/copilot-maximum-capabilities.md) | Copilot CLI 最大能力の詳細分析・ロードマップ |
+| [agent-quality-framework.md](best-practices/agent-quality-framework.md) | エージェント出力品質評価スコアカード・自動チェック ★新規 |
 
 ### 📘 実例（examples/）
 
@@ -113,8 +117,9 @@ claude --dangerously-skip-permissions
 |---------|------|
 | [example-monitor-session.md](examples/example-monitor-session.md) | Monitor Loop の実行例 |
 | [example-end-to-end-workflow.md](examples/example-end-to-end-workflow.md) | 5タスクの一夜セッション全記録 |
-| [example-fleet-execution.md](examples/example-fleet-execution.md) | /fleet 並列実行ウォークスルー（実ログ付き）★新規 |
-| [example-failure-recovery.md](examples/example-failure-recovery.md) | 失敗時のリカバリー手順集（7パターン）★新規 |
+| [example-fleet-execution.md](examples/example-fleet-execution.md) | /fleet 並列実行ウォークスルー（実ログ付き） |
+| [example-failure-recovery.md](examples/example-failure-recovery.md) | 失敗時のリカバリー手順集（7パターン） |
+| [real-world-project-example.md](examples/real-world-project-example.md) | SaaS プロジェクト実践例・コスト実績・トラブル事例 ★新規 |
 
 ### 📁 テンプレート（templates/）★新規
 
@@ -124,7 +129,7 @@ claude --dangerously-skip-permissions
 | [TASKS.md](templates/TASKS.md) | プロジェクトルート | タスク管理・優先度キュー |
 | [CLAUDE.md](templates/CLAUDE.md) | プロジェクトルート | Claude/Copilot起動時の詳細設定 |
 
-### 🤖 カスタムエージェント定義（.github/agents/）★新規
+### 🤖 カスタムエージェント定義（.github/agents/）
 
 | ファイル | 役割 | 推奨モデル |
 |---------|------|-----------|
@@ -133,6 +138,8 @@ claude --dangerously-skip-permissions
 | [test-writer.agent.md](.github/agents/test-writer.agent.md) | テスト設計・生成 | GPT-5.3-Codex |
 | [security-agent.agent.md](.github/agents/security-agent.agent.md) | セキュリティレビュー | Claude Opus 4.6 |
 | [docs-agent.agent.md](.github/agents/docs-agent.agent.md) | ドキュメント生成 | Claude Sonnet 4.6 |
+| [devops-agent.agent.md](.github/agents/devops-agent.agent.md) | インフラ・CI/CD・クラウドデプロイ ★新規 | Claude Opus 4.6 |
+| [qa-automation-agent.agent.md](.github/agents/qa-automation-agent.agent.md) | E2E・パフォーマンステスト ★新規 | GPT-5.3-Codex |
 
 ### 📋 タスクプロンプト（tasks/）
 
