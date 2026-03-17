@@ -16,12 +16,36 @@
 
 ## [Unreleased]
 
+---
+
+## [1.3.0] - 2026-03-17
+
 ### Added
-- `templates/mcp-config.json` — Slack / Jira / AWS 連携用 MCP サーバー設定テンプレート（計画中）
-- 言語別 `AGENTS.md` バリアント — Python / Java / Go 向けプロジェクトテンプレート（計画中）
-- `.github/workflows/copilot-weekly.yml` — Triple Loop 週次自動化 GitHub Actions（計画中）
-- Triple Loop 監視ダッシュボード — セッション統計・コスト追跡の可視化ツール（計画中）
-- エージェント品質評価フレームワーク — カスタムエージェント出力品質の測定基準（計画中）
+- `QUICK-REFERENCE.md` — Triple Loop チートシート（334行）
+- `CHANGELOG.md` — Keep a Changelog形式の変更履歴（v1.0〜v1.3）
+- `prompts/build-loop-prompts.md` — Build Loop用プロンプト5種（635行）
+- `templates/CLAUDE.md` — ~/.claude/CLAUDE.md統合設定（617行）
+- `.github/workflows/ci.yml` — Markdown品質CI（markdownlint・リンクチェック・統計）
+- `.github/workflows/weekly-improvement.yml` — 週次統計レポート自動生成
+- `.markdownlint.json` / `.mlc-config.json` — CI設定ファイル
+- `operations/troubleshooting-guide.md` — 17エラーパターン診断ガイド（1,078行）
+- `architecture/claudeos-loop-spec.md` — ClaudeOS Loop完全仕様書（1,062行）
+- `best-practices/agent-quality-framework.md` — 品質評価スコアカード（847行）
+- `examples/real-world-project-example.md` — SaaS実践例・コスト実績（728行）
+- `.github/agents/devops-agent.agent.md` — DevOps専門エージェント定義
+- `.github/agents/qa-automation-agent.agent.md` — QA自動化専門エージェント定義
+
+### Changed
+- `README.md` — 新規ファイル反映・リポジトリ構造図更新・CI/CD表追加
+- `architecture/triple-loop-architecture.md` — Mermaid図3種追加（状態遷移・シーケンス・ガント）
+- `architecture/agent-teams-system.md` — Mermaid図3種追加（グラフ・シーケンス・マップ）
+- `architecture/autonomous-development-architecture.md` — State Manager JSON Schema・Feedback Bus Protocol・Mermaidシーケンス図追加
+- `.github/agents/devops-agent.agent.md` — terraform権限をwildcardから明示的権限へ修正（セキュリティ強化）
+
+### Fixed
+- `.github/workflows/ci.yml` — サードパーティAction SHA ピン適用（サプライチェーンセキュリティ）
+- `.github/workflows/weekly-improvement.yml` — Actions Expression を環境変数経由に変更（インジェクション対策）
+- `CHANGELOG.md` — プレースホルダーURLを実際のリポジトリURLに修正
 
 ---
 
