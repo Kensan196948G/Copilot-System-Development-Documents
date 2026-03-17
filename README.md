@@ -12,6 +12,8 @@ AI 自動開発のベストプラクティスを体系的に整理。
 ```
 .
 ├── README.md
+├── .github/agents/        ← カスタムエージェント定義（5種）★新規
+├── templates/             ← コピーしてすぐ使えるテンプレート集 ★新規
 ├── architecture/          ← システム設計・アーキテクチャ
 ├── loops/                 ← 各ループの詳細リファレンス
 ├── operations/            ← 起動ガイド・コマンドリファレンス・運用ガイド
@@ -83,6 +85,8 @@ claude --dangerously-skip-permissions
 | [copilot-start-guide.md](operations/copilot-start-guide.md) | 起動ガイド（CLAUDE.md 配置から放置まで） |
 | [loop-command-usage.md](operations/loop-command-usage.md) | /loop コマンド完全リファレンス |
 | [autonomous-development-workflow.md](operations/autonomous-development-workflow.md) | タスク準備 → Monitor → Build → Verify → 最終処理 |
+| [cost-optimization-guide.md](operations/cost-optimization-guide.md) | プレミアムリクエスト管理・コスト最適化パターン ★新規 |
+| [team-onboarding-guide.md](operations/team-onboarding-guide.md) | 30分クイックスタート・組織設定・チーム運用フロー ★新規 |
 
 ### 💬 プロンプトテンプレート（prompts/）
 
@@ -96,6 +100,8 @@ claude --dangerously-skip-permissions
 | ファイル | 内容 |
 |---------|------|
 | [autonomous-session-best-practices.md](best-practices/autonomous-session-best-practices.md) | タスク定義・コンテキスト管理・週次運用スケジュール |
+| [copilot-capability-summary.md](best-practices/copilot-capability-summary.md) | Triple Loop 15H 実現可能性サマリー・自律型DevOps |
+| [copilot-maximum-capabilities.md](best-practices/copilot-maximum-capabilities.md) | Copilot CLI 最大能力の詳細分析・ロードマップ |
 
 ### 📘 実例（examples/）
 
@@ -103,6 +109,26 @@ claude --dangerously-skip-permissions
 |---------|------|
 | [example-monitor-session.md](examples/example-monitor-session.md) | Monitor Loop の実行例 |
 | [example-end-to-end-workflow.md](examples/example-end-to-end-workflow.md) | 5タスクの一夜セッション全記録 |
+| [example-fleet-execution.md](examples/example-fleet-execution.md) | /fleet 並列実行ウォークスルー（実ログ付き）★新規 |
+| [example-failure-recovery.md](examples/example-failure-recovery.md) | 失敗時のリカバリー手順集（7パターン）★新規 |
+
+### 📁 テンプレート（templates/）★新規
+
+| ファイル | コピー先 | 内容 |
+|---------|---------|------|
+| [AGENTS.md](templates/AGENTS.md) | プロジェクトルート | Copilot CLIへのプロジェクト規約指示 |
+| [TASKS.md](templates/TASKS.md) | プロジェクトルート | タスク管理・優先度キュー |
+| [CLAUDE.md](templates/CLAUDE.md) | プロジェクトルート | Claude/Copilot起動時の詳細設定 |
+
+### 🤖 カスタムエージェント定義（.github/agents/）★新規
+
+| ファイル | 役割 | 推奨モデル |
+|---------|------|-----------|
+| [backend-agent.agent.md](.github/agents/backend-agent.agent.md) | API・DB・認証実装 | Claude Opus 4.6 |
+| [frontend-agent.agent.md](.github/agents/frontend-agent.agent.md) | UI・UX実装 | Claude Sonnet 4.6 |
+| [test-writer.agent.md](.github/agents/test-writer.agent.md) | テスト設計・生成 | GPT-5.3-Codex |
+| [security-agent.agent.md](.github/agents/security-agent.agent.md) | セキュリティレビュー | Claude Opus 4.6 |
+| [docs-agent.agent.md](.github/agents/docs-agent.agent.md) | ドキュメント生成 | Claude Sonnet 4.6 |
 
 ### 📋 タスクプロンプト（tasks/）
 
