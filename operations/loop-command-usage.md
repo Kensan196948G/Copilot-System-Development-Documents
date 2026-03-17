@@ -1,326 +1,230 @@
-# Loop Command Usage
+# ループコマンドリファレンス（Loop Command Usage）
 
-## Overview
+## 概要
 
-The `copilot-loops` CLI provides commands to manage and interact with the Monitor, Build, and Verify loops. This reference covers all available commands, flags, and usage examples.
-
----
-
-## Global Flags
-
-These flags are available on all commands:
-
-| Flag               | Short | Default             | Description                                   |
-|--------------------|-------|---------------------|-----------------------------------------------|
-| `--config`         | `-c`  | `loop-config.yaml`  | Path to the loop configuration file           |
-| `--log-level`      | `-l`  | `info`              | Log verbosity: `debug`, `info`, `warn`, `error`|
-| `--log-file`       |       | `~/.copilot-loops/logs/` | Directory for log files                |
-| `--no-color`       |       | `false`             | Disable colored output                        |
-| `--json`           |       | `false`             | Output in JSON format (for scripting)          |
+Claude Code の `/loop` コマンドと `triple-loop-15h.sh` スクリプトの
+完全なリファレンスです。全コマンド・フラグ・使用例を網羅します。
 
 ---
 
-## `start` — Start All Loops
+## /loop コマンドの基本
 
-Start the Monitor, Build, and Verify loops together.
+`/loop` は Claude Code セッション内で使用するコマンドです。
+時間制限付きの自律実行ループを起動します。
 
-```bash
-npx copilot-loops start [flags]
+```
+/loop [時間(m)] [実行指示]
 ```
 
-### Flags
-
-| Flag         | Default | Description                                                  |
-|--------------|---------|--------------------------------------------------------------|
-| `--daemon`   | `false` | Run in background as a daemon process                        |
-| `--dry-run`  | `false` | Parse config and connect to APIs, but do not execute tasks  |
-| `--once`     | `false` | Run a single Monitor cycle, then exit                        |
-| `--task`     |         | Process a specific task ID only (useful for debugging)       |
-
-### Examples
-
-```bash
-# Start all loops interactively
-npx copilot-loops start
-
-# Start in daemon mode
-npx copilot-loops start --daemon
-
-# Dry-run to validate configuration
-npx copilot-loops start --dry-run
-
-# Process only one specific task
-npx copilot-loops start --task TASK-42
-```
+| 引数 | 説明 | 例 |
+|-----|------|---|
+| 時間(m) | 実行制限時間（分） | `900m`（15時間）|
+| 実行指示 | Claude への詳細な指示文 | 下記テンプレート参照 |
 
 ---
 
-## `monitor` — Start Monitor Loop Only
+## プリセットコマンド
 
-```bash
-npx copilot-loops monitor [flags]
+### 🔄 2サイクル15H（推奨・週5日運用の標準）
+
+```
+/loop 900m 以下の3重ループを2サイクル実行してください。（中略）
 ```
 
-### Flags
+→ 詳細は [起動ガイド](copilot-start-guide.md) を参照
 
-| Flag             | Description                                              |
-|------------------|----------------------------------------------------------|
-| `--interval`     | Override the polling interval in seconds                 |
-| `--once`         | Run a single Monitor cycle, then exit                    |
-| `--idle`         | Start in idle monitoring mode (no active task dispatch)  |
-
-### Examples
-
-```bash
-# Start the Monitor Loop
-npx copilot-loops monitor
-
-# Run one cycle and print the task plan
-npx copilot-loops monitor --once --log-level debug
-
-# Monitor with a faster polling interval
-npx copilot-loops monitor --interval 30
-```
+**特徴:**
+- 実装タスク: 2タスク/日
+- 総稼働: 15時間（Monitor×2 + Build×2 + Verify×2 + CD + 最終処理）
+- 週5日 × 15H = 75H/週（安全圏内）
 
 ---
 
-## `build` — Start Build Loop Only
+### 🔄 1サイクル8H（軽量・リミット節約）
 
-```bash
-npx copilot-loops build [flags]
+```
+/loop 450m 以下の3重ループを1サイクルとして実行してください。（中略）
 ```
 
-### Flags
-
-| Flag             | Description                                              |
-|------------------|----------------------------------------------------------|
-| `--task`         | Process a specific task ID (requires context package)    |
-| `--context-file` | Path to a JSON context package file (skip Monitor Loop)  |
-| `--no-commit`    | Apply file changes but do not commit to Git              |
-| `--no-docker`    | Run builds on the host instead of in Docker              |
-
-### Examples
-
-```bash
-# Start the Build Loop in listener mode
-npx copilot-loops build
-
-# Run the Build Loop manually on a specific task context
-npx copilot-loops build --task TASK-42 --context-file /tmp/task-42-context.json
-
-# Build without Docker (for local development)
-npx copilot-loops build --no-docker
-```
+**特徴:**
+- 実装タスク: 1タスク/日
+- 総稼働: 8時間
+- 週5日 × 8H = 40H/週（余裕あり）
 
 ---
 
-## `verify` — Start Verify Loop Only
+### 🔍 Monitor 単体（現状把握のみ）
 
-```bash
-npx copilot-loops verify [flags]
+```
+/loop 30m 本ファイル内の「Monitor Loop 指示」に従い、プロジェクトの現状把握を実行してください。コード変更は一切行わないこと。結果を .loop-monitor-report.md に出力。異常検知時は .loop-alert.md も出力。
 ```
 
-### Flags
-
-| Flag             | Description                                              |
-|------------------|----------------------------------------------------------|
-| `--commit`       | Verify a specific commit SHA                             |
-| `--task`         | Verify a specific task's latest build artifact           |
-| `--skip-tests`   | Skip test execution (run lint and security only)         |
-| `--skip-security`| Skip security scan                                       |
-| `--no-docker`    | Run verification on the host instead of in Docker        |
-
-### Examples
-
-```bash
-# Start the Verify Loop in listener mode
-npx copilot-loops verify
-
-# Verify a specific commit
-npx copilot-loops verify --commit a1b2c3d
-
-# Quick verify without running the full test suite
-npx copilot-loops verify --task TASK-42 --skip-tests
-```
+**出力ファイル:**
+- `.loop-monitor-report.md` — 現状分析レポート
+- `.loop-alert.md` — 異常検知時のみ（セキュリティ脆弱性・テスト失敗・ビルドエラー）
 
 ---
 
-## `status` — Check System Status
-
-```bash
-npx copilot-loops status [flags]
-```
-
-### Flags
-
-| Flag      | Description                                    |
-|-----------|------------------------------------------------|
-| `--watch` | Continuously refresh status (like `watch`)     |
-
-### Examples
-
-```bash
-# Check current loop status
-npx copilot-loops status
-
-# Watch status in real time
-npx copilot-loops status --watch
-```
-
-### Sample Output
+### 🔨 Build 単体（実装のみ）
 
 ```
-╔═══════════════════════════════════════════════════════════╗
-║             Copilot Loop System Status                    ║
-╠═══════════════╦═══════════╦══════════╦════════════════════╣
-║ Loop          ║ Status    ║ Cycle    ║ Last Activity      ║
-╠═══════════════╬═══════════╬══════════╬════════════════════╣
-║ Monitor Loop  ║ RUNNING   ║ 47       ║ 23s ago            ║
-║ Build Loop    ║ BUILDING  ║ -        ║ TASK-42 attempt 2  ║
-║ Verify Loop   ║ IDLE      ║ -        ║ TASK-41 passed     ║
-╚═══════════════╩═══════════╩══════════╩════════════════════╝
+/loop 120m 本ファイル内の「Build Loop 指示」に従い、TASKS.mdから優先度順にタスクを選択し5段階開発ステップを実行してください。各Step完了ごとにmainへcommit。全操作を自動承認で続行。完了時に .loop-build-handoff.md を出力。
+```
 
-Active task: TASK-42 "Implement JWT refresh logic" (attempt 2/5)
-Queue depth: 3 tasks pending
+**Build の5段階ステップ:**
+1. 要件分析・設計（AGENTS.md に記録）
+2. コア実装
+3. テスト実装
+4. lint / typecheck 修正
+5. ドキュメント更新 + commit
+
+**出力ファイル:**
+- `.loop-build-handoff.md` — Verify Loop への引き継ぎ文書
+
+---
+
+### 🧪 Verify 単体（レビュー・テストのみ）
+
+```
+/loop 240m 本ファイル内の「Verify Loop 指示」に従い、.loop-build-handoff.mdを読み込みBuild成果物をレビュー・テスト・デバッグ修正してください。修正はmainへcommit。完了時に .loop-verify-report.md を出力。
+```
+
+**Verify の実施内容:**
+- コードレビュー（品質・設計・セキュリティ）
+- テスト実行（ユニット・統合）
+- カバレッジ確認（80%以上）
+- lint / typecheck 確認
+- デバッグ修正（最大15回）
+
+**出力ファイル:**
+- `.loop-verify-report.md` — レビュー・テスト結果レポート
+
+---
+
+## 運用モード別比較
+
+| モード | コマンド | 稼働時間 | タスク数/日 | 週消費（5日） |
+|-------|---------|---------|------------|-------------|
+| 2サイクル15H | `/loop 900m` | 15H | 2タスク | 75H |
+| 1サイクル8H | `/loop 450m` | 8H | 1タスク | 40H |
+| Monitor のみ | `/loop 30m` | 30分 | 0（調査のみ）| - |
+| Build のみ | `/loop 120m` | 2H | 0.5タスク | - |
+| Verify のみ | `/loop 240m` | 4H | 0.5タスク | - |
+
+---
+
+## loop-config.yaml（詳細設定）
+
+プロジェクトルートに配置して挙動をカスタマイズできます：
+
+```yaml
+monitor:
+  interval_seconds: 120       # ポーリング間隔
+  max_context_files: 20       # コンテキストに含める最大ファイル数
+  task_queue:
+    source: tasks_md          # TASKS.md から読み込む
+    priority_field: "Priority: High/Medium/Low"
+  escalation_retry_limit: 3   # エスカレーション前の最大リトライ回数
+
+build:
+  max_retries: 15             # CI 修復 AI の最大リトライ数
+  timeout_minutes: 120        # 1タスクのタイムアウト
+  build_isolation: docker     # 隔離実行（docker / host）
+  branch_prefix: "feature/"
+  commit_style: conventional  # Conventional Commits 規約
+
+verify:
+  test_command: "npm test"
+  coverage_command: "npm run test:coverage"
+  lint_command: "npm run lint"
+  typecheck_command: "npm run typecheck"
+  coverage_thresholds:
+    lines: 80
+    branches: 75
+  create_pull_request_on_pass: true
+  auto_merge: false           # PR の自動マージは無効（ユーザー確認推奨）
+
+session:
+  daily_limit_hours: 15       # 日次リミット
+  weekly_limit_hours: 75      # 週次リミット（警告のみ）
+  report_output_dir: "docs/"  # 作業日報の出力先
 ```
 
 ---
 
-## `queue` — Manage the Task Queue
+## ループ間の引き継ぎファイル
 
-```bash
-npx copilot-loops queue <subcommand> [flags]
 ```
-
-### Subcommands
-
-| Subcommand | Description                                          |
-|------------|------------------------------------------------------|
-| `list`     | List all tasks in the queue with their status        |
-| `add`      | Manually add a task to the queue                     |
-| `remove`   | Remove a task from the queue                         |
-| `pause`    | Pause a task (prevent it from being dispatched)      |
-| `resume`   | Resume a paused task                                 |
-
-### Examples
-
-```bash
-# List the task queue
-npx copilot-loops queue list
-
-# Add a task manually (bypassing GitHub Issues)
-npx copilot-loops queue add \
-  --title "Fix null pointer in auth module" \
-  --description "src/auth/token.ts line 47 throws NPE when token is undefined" \
-  --priority high
-
-# Pause a task
-npx copilot-loops queue pause TASK-44
-
-# Remove a task
-npx copilot-loops queue remove TASK-44
+Monitor Loop
+  ↓ .loop-monitor-report.md（状況・タスク優先度・コンテキスト）
+Build Loop
+  ↓ .loop-build-handoff.md（実装内容・コミット・変更ファイル）
+Verify Loop
+  ↓ .loop-verify-report.md（レビュー結果・テスト結果・マージ可否）
+最終処理
+  ↓ docs/[日付]_自律開発作業報告.md（2サイクル分のサマリー）
 ```
 
 ---
 
-## `task` — Inspect and Manage Individual Tasks
+## CI 修復 AI の動作
 
-```bash
-npx copilot-loops task <subcommand> <task-id> [flags]
+Build Loop に内蔵された CI 修復 AI は、ビルド・テスト失敗時に自動で修復します：
+
 ```
-
-### Subcommands
-
-| Subcommand | Description                                              |
-|------------|----------------------------------------------------------|
-| `status`   | Show detailed status of a task                           |
-| `logs`     | Show all agent logs for a task                           |
-| `context`  | Show the context package that was sent to the Build Loop |
-| `retry`    | Force a task to retry from the current state             |
-| `reset`    | Reset a task to `pending` (start from scratch)           |
-| `escalate` | Manually escalate a task to human review                 |
-
-### Examples
-
-```bash
-# Check task status
-npx copilot-loops task status TASK-42
-
-# View agent logs for a task
-npx copilot-loops task logs TASK-42
-
-# Retry a failed task
-npx copilot-loops task retry TASK-42
-
-# Escalate a stuck task to human review
-npx copilot-loops task escalate TASK-42 --reason "Build errors require architectural decision"
+ビルド失敗
+  └─ エラー解析
+  └─ 修正実装（試行 1/15）
+  └─ ビルド再実行
+    ├─ 成功 → Verify Loop へ
+    └─ 失敗 → 試行 2/15 ...
+        └─ 15回で解決不可 → TASKS.md に「要手動対応」記録
+                          → 次のタスクに進む
 ```
 
 ---
 
-## `stop` — Stop All Loops
+## ログの確認
 
 ```bash
-npx copilot-loops stop [flags]
-```
+# セッション中のリアルタイムログ
+# → Claude Code のターミナル出力を参照
 
-### Flags
+# 引き継ぎファイルの確認
+cat .loop-monitor-report.md
+cat .loop-build-handoff.md
+cat .loop-verify-report.md
 
-| Flag      | Description                                              |
-|-----------|----------------------------------------------------------|
-| `--force` | Kill immediately without waiting for current task        |
-| `--loop`  | Stop only a specific loop: `monitor`, `build`, `verify`  |
+# 作業日報の確認
+ls docs/
+cat "docs/$(date +%Y-%m-%d)_自律開発作業報告.md"
 
-### Examples
-
-```bash
-# Graceful stop
-npx copilot-loops stop
-
-# Force stop all loops immediately
-npx copilot-loops stop --force
-
-# Stop only the Build Loop
-npx copilot-loops stop --loop build
+# Git ログで実装内容を確認
+git log --oneline --since="15 hours ago"
 ```
 
 ---
 
-## `logs` — Stream Logs
+## 週次運用スケジュール
 
-```bash
-npx copilot-loops logs [flags]
 ```
+【週5日（月〜金） — 推奨】
+  月〜金: /loop 900m（15H）→ 2タスク/日 → 週10タスク
+  土日: 休止（リミット回復）
+  週消費: 75H
 
-### Flags
-
-| Flag       | Description                                              |
-|------------|----------------------------------------------------------|
-| `--loop`   | Stream logs from a specific loop only                    |
-| `--task`   | Stream logs for a specific task only                     |
-| `--follow` | Continuously stream new log lines (default: true)        |
-| `--since`  | Show logs since a timestamp (e.g., `10m`, `1h`, `2024-01-15T10:00:00Z`) |
-
-### Examples
-
-```bash
-# Stream all logs
-npx copilot-loops logs
-
-# Stream only Build Loop logs
-npx copilot-loops logs --loop build
-
-# Stream logs for a specific task
-npx copilot-loops logs --task TASK-42
-
-# Show logs from the last 10 minutes
-npx copilot-loops logs --since 10m
+【週6日（月〜土） — 積極運用】
+  月〜土: /loop 900m（15H）→ 2タスク/日 → 週12タスク
+  日: 休止
+  週消費: 90H ⚠️ 金・土はリミット残量確認後に開始
 ```
 
 ---
 
-## Related Documents
+## 関連ドキュメント
 
-- [Copilot Start Guide](copilot-start-guide.md)
-- [Autonomous Development Workflow](autonomous-development-workflow.md)
-- [Triple Loop Architecture](../architecture/triple-loop-architecture.md)
+- [起動ガイド](copilot-start-guide.md)
+- [自律開発ワークフロー](autonomous-development-workflow.md)
+- [Monitor Loop リファレンス](../loops/monitor-loop.md)
+- [Build Loop リファレンス](../loops/build-loop.md)
+- [Verify Loop リファレンス](../loops/verify-loop.md)

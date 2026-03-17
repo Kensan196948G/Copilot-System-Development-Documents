@@ -1,78 +1,145 @@
 # Copilot System Development Documents
 
-A knowledge base and documentation hub for **autonomous software development using GitHub Copilot CLI**.
+CopilotCLI（Claude Code）による自律型ソフトウェア開発システムのドキュメント集。
 
-This repository provides a comprehensive reference for engineers building and operating AI-driven autonomous development systems powered by Copilot CLI.
-
----
-
-## 📚 Overview
-
-Modern software teams are increasingly leveraging AI agents to handle repetitive development tasks, continuous integration checks, and code review cycles. This repository documents the architecture, workflows, and operational patterns behind a fully autonomous development pipeline built on top of GitHub Copilot CLI.
-
-Key topics covered:
-
-- **Triple Loop Development System** – an orchestrated approach using Monitor, Build, and Verify loops running in parallel
-- **AI Agent Teams** – how specialized agents collaborate to complete development tasks end-to-end
-- **Autonomous DevOps Workflow** – CI/CD pipelines driven by AI rather than human intervention
-- **Prompt Engineering** – crafting effective prompts for each loop phase to maximize agent accuracy
-- **Best Practices** – guidelines for long-running autonomous sessions, error recovery, and human-in-the-loop checkpoints
+Triple Loop アーキテクチャ、Agent Teams、Monitor/Build/Verify ループ、
+AI 自動開発のベストプラクティスを体系的に整理。
 
 ---
 
-## 🗂 Repository Structure
+## リポジトリ構造
 
 ```
-Copilot-System-Development-Documents/
-├── README.md                          # This file
-├── architecture/
-│   ├── autonomous-development-architecture.md
-│   ├── triple-loop-architecture.md
-│   └── agent-teams-system.md
-├── loops/
-│   ├── monitor-loop.md
-│   ├── build-loop.md
-│   └── verify-loop.md
-├── operations/
-│   ├── copilot-start-guide.md
-│   ├── loop-command-usage.md
-│   └── autonomous-development-workflow.md
-├── prompts/
-│   ├── monitor-loop-prompts.md
-│   └── verify-loop-prompts.md
-├── best-practices/
-│   └── autonomous-session-best-practices.md
-└── examples/
-    ├── example-monitor-session.md
-    └── example-end-to-end-workflow.md
+.
+├── README.md
+├── architecture/          ← システム設計・アーキテクチャ
+├── loops/                 ← 各ループの詳細リファレンス
+├── operations/            ← 起動ガイド・コマンドリファレンス・運用ガイド
+├── prompts/               ← AI プロンプトテンプレート
+├── best-practices/        ← 長時間自律セッションのベストプラクティス
+├── examples/              ← 実セッションのウォークスルー
+└── tasks/                 ← タスク別プロンプトテンプレート（15種類）
 ```
 
 ---
 
-## 🚀 Getting Started
+## クイックスタート
 
-1. Read [Autonomous Development Architecture](architecture/autonomous-development-architecture.md) to understand the overall system design.
-2. Study the [Triple Loop Architecture](architecture/triple-loop-architecture.md) to see how loops interact.
-3. Follow the [Copilot Start Guide](operations/copilot-start-guide.md) to set up your environment.
-4. Use the [Autonomous Development Workflow](operations/autonomous-development-workflow.md) as your day-to-day reference.
+### 1. CLAUDE.md の配置
+
+```bash
+mkdir -p ~/.claude
+# operations/00_フル自律開発起動(FullAutoStart).md の
+# 「▼ここからコピー〜▲ここまでコピー」を ~/.claude/CLAUDE.md に貼り付け
+```
+
+### 2. TASKS.md の作成
+
+```markdown
+# Project Tasks
+## Priority: High
+- [ ] 実装したいタスクを書く
+```
+
+### 3. Claude Code 起動
+
+```bash
+cd /path/to/your/project
+claude --dangerously-skip-permissions
+```
+
+### 4. /loop コマンドで自律開発開始
+
+```
+/loop 900m 以下の3重ループを2サイクル実行してください。（以下略 — operations/00_フル自律開発起動参照）
+```
 
 ---
 
-## 🎯 Who Is This For?
+## ドキュメント一覧
 
-- **Platform engineers** designing AI-native CI/CD pipelines
-- **DevOps engineers** integrating Copilot agents into existing workflows
-- **Software architects** evaluating autonomous development architectures
-- **AI/ML engineers** building and fine-tuning development agents
+### 🏗 アーキテクチャ（architecture/）
+
+| ファイル | 内容 |
+|---------|------|
+| [triple-loop-architecture.md](architecture/triple-loop-architecture.md) | Triple Loop の全体設計・状態機械・ループ間連携 |
+| [autonomous-development-architecture.md](architecture/autonomous-development-architecture.md) | 自律開発システムの全体アーキテクチャ |
+| [agent-teams-system.md](architecture/agent-teams-system.md) | 8つの Agent チームの役割とメッセージプロトコル |
+
+### 🔄 ループリファレンス（loops/）
+
+| ファイル | 内容 |
+|---------|------|
+| [monitor-loop.md](loops/monitor-loop.md) | Monitor Loop の実行フロー・コンテキスト収集 |
+| [build-loop.md](loops/build-loop.md) | Build Loop の5段階ステップ・リトライロジック |
+| [verify-loop.md](loops/verify-loop.md) | Verify Loop の品質ゲート・テスト・セキュリティ |
+
+### ⚙️ 運用ガイド（operations/）
+
+| ファイル | 内容 |
+|---------|------|
+| [00_フル自律開発起動(FullAutoStart).md](operations/00_フル自律開発起動(FullAutoStart).md) | 全プロンプト・/loop コマンド・起動手順（コピペ元） |
+| [00_利用ガイド(UsageGuide).md](operations/00_利用ガイド(UsageGuide).md) | 2ファイル構成の説明・起動方法3種 |
+| [copilot-start-guide.md](operations/copilot-start-guide.md) | 起動ガイド（CLAUDE.md 配置から放置まで） |
+| [loop-command-usage.md](operations/loop-command-usage.md) | /loop コマンド完全リファレンス |
+| [autonomous-development-workflow.md](operations/autonomous-development-workflow.md) | タスク準備 → Monitor → Build → Verify → 最終処理 |
+
+### 💬 プロンプトテンプレート（prompts/）
+
+| ファイル | 内容 |
+|---------|------|
+| [monitor-loop-prompts.md](prompts/monitor-loop-prompts.md) | コンテキスト分析・タスク分解・ヘルスチェック |
+| [verify-loop-prompts.md](prompts/verify-loop-prompts.md) | テスト分析・カバレッジ・セキュリティ・PR サマリー |
+
+### ✅ ベストプラクティス（best-practices/）
+
+| ファイル | 内容 |
+|---------|------|
+| [autonomous-session-best-practices.md](best-practices/autonomous-session-best-practices.md) | タスク定義・コンテキスト管理・週次運用スケジュール |
+
+### 📘 実例（examples/）
+
+| ファイル | 内容 |
+|---------|------|
+| [example-monitor-session.md](examples/example-monitor-session.md) | Monitor Loop の実行例 |
+| [example-end-to-end-workflow.md](examples/example-end-to-end-workflow.md) | 5タスクの一夜セッション全記録 |
+
+### 📋 タスクプロンプト（tasks/）
+
+Claude Code に渡すタスク別プロンプトテンプレート。
+`[PROJECT_NAME]` などのプレースホルダを書き換えて使用。
+
+| # | ファイル | 用途 |
+|---|---------|------|
+| 01 | [新規プロジェクト初期化](tasks/01_新規プロジェクト初期化(NewProjectInit).md) | プロジェクトのスケルトン構築 |
+| 02 | [バグ修正](tasks/02_バグ修正(BugFix).md) | バグ調査・修正・テスト追加 |
+| 03 | [コードレビュー](tasks/03_コードレビュー(CodeReview).md) | PR・コードの多角的レビュー |
+| 04 | [リファクタリング](tasks/04_リファクタリング(Refactoring).md) | 技術的負債の段階的解消 |
+| 05 | [テスト自動化](tasks/05_テスト自動化(TestAutomation).md) | テスト生成・カバレッジ向上 |
+| 06 | [CI/CD 構築](tasks/06_CI_CD構築(CICDSetup).md) | GitHub Actions パイプライン構築 |
+| 07 | [セキュリティ診断](tasks/07_セキュリティ診断(SecurityAudit).md) | 脆弱性スキャン・修正 |
+| 08 | [ドキュメント生成](tasks/08_ドキュメント生成(DocGeneration).md) | README・API 仕様書・Mermaid 図 |
+| 09 | [パフォーマンス最適化](tasks/09_パフォーマンス最適化(PerformanceOpt).md) | ボトルネック特定・最適化 |
+| 10 | [API サーバー構築](tasks/10_APIサーバー構築(APIServerBuild).md) | REST API 設計・実装・Docker |
+| 11 | [フロントエンド開発](tasks/11_フロントエンド開発(FrontendDev).md) | UI コンポーネント・アクセシビリティ |
+| 12 | [データベース設計](tasks/12_データベース設計(DatabaseDesign).md) | ER 図・マイグレーション・インデックス |
+| 13 | [レガシーコード移行](tasks/13_レガシーコード移行(LegacyMigration).md) | Strangler Fig パターンでの移行 |
+| 14 | [依存関係更新](tasks/14_依存関係更新(DependencyUpdate).md) | 安全な依存関係の最新化 |
+| 15 | [インシデント対応](tasks/15_インシデント対応(IncidentResponse).md) | 本番障害の緊急対応・ポストモーテム |
 
 ---
 
-## 🤝 Contributing
+## 運用モード
 
-Contributions are welcome. Please follow the structure above and write documentation in clear, technical English suitable for engineers familiar with CI/CD and software development automation.
+| モード | コマンド | 稼働時間 | 実装タスク数/日 |
+|-------|---------|---------|--------------|
+| 2サイクル15H（推奨） | `/loop 900m` | 15時間 | 2タスク |
+| 1サイクル8H | `/loop 450m` | 8時間 | 1タスク |
+| Monitor のみ | `/loop 30m` | 30分 | 0（調査のみ） |
+| 単発タスク | `tasks/` テンプレート使用 | 任意 | 任意 |
 
 ---
 
-## 📄 License
+## ライセンス
 
-This documentation is provided as-is for reference and educational purposes.
+MIT License

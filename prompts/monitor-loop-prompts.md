@@ -1,275 +1,264 @@
-# Monitor Loop Prompts
+# Monitor Loop プロンプトテンプレート（Monitor Loop Prompts）
 
-## Overview
+## 概要
 
-This document provides the canonical prompt templates used by the Monitor Loop when gathering context and building task packages for the Build Loop. These prompts are designed for Copilot CLI and follow structured prompt engineering principles for AI-driven development.
-
----
-
-## Prompt Engineering Principles for the Monitor Loop
-
-The Monitor Loop prompts follow these core principles:
-
-1. **Role specification** – always define what role Copilot should take
-2. **Explicit output format** – request structured JSON output for machine parsing
-3. **Bounded scope** – constrain the task to avoid hallucination or scope creep
-4. **Context grounding** – include actual code snippets and issue text, not abstractions
-5. **Failure reasoning** – on retries, explicitly describe what went wrong
+Monitor Loop で使用するプロンプトテンプレートの一覧です。
+状況別に5種類のプロンプトを用意しています。
+`{variable}` 形式のプレースホルダを実際の値に置き換えて使用してください。
 
 ---
 
-## Prompt 1: Initial Context Analysis
+## プロンプト設計原則
 
-Used when the Monitor Loop first picks up a new task. The goal is to understand which files and code regions are most relevant.
+1. **役割の明確化** — Claude が担う役割を冒頭で定義する
+2. **出力形式の指定** — 機械処理のため JSON / Markdown 形式を指定する
+3. **スコープの限定** — スコープクリープを防ぐための制約を入れる
+4. **コードの直接参照** — 抽象的な説明でなく実際のコードスニペットを含める
+5. **失敗理由の明示** — リトライ時は前回の失敗原因を含める
+
+---
+
+## プロンプト 1: 初期コンテキスト分析
+
+新しいタスクを受け取ったとき、関連ファイルを特定するために使用します。
 
 ```
-You are an expert software engineer performing codebase analysis. Your task is to
-identify the most relevant source files and code sections for implementing the
-following change.
+あなたは熟練したソフトウェアエンジニアです。
+以下の変更を実装するために最も関連性の高いファイルとコードを特定してください。
 
-## Task
-Title: {task_title}
-Description: {task_description}
+## タスク
+タイトル: {task_title}
+説明: {task_description}
+優先度: {priority}
 
-## Repository Structure
+## リポジトリ構造
 {repository_file_tree}
 
-## Recent Commits (last 10)
+## 最近のコミット（直近10件）
 {recent_commits}
 
-## Related Issues
+## 関連 Issue（あれば）
 {related_issue_summaries}
 
-## Instructions
-1. Identify the 5–10 files most relevant to this task.
-2. For each file, explain in one sentence WHY it is relevant.
-3. Identify any tests that should be updated or created.
-4. Identify any documentation that may need updating.
-5. List any potential risks or breaking changes.
+## 指示
+1. このタスクに最も関連する5〜10ファイルを特定する
+2. 各ファイルが関連する理由を1文で説明する
+3. 更新・作成が必要なテストを特定する
+4. 更新が必要なドキュメントを特定する
+5. リスク・破壊的変更の可能性を列挙する
 
-Respond in the following JSON format:
+以下の JSON 形式で回答してください:
 {
   "relevant_files": [
-    { "path": "src/auth/token.ts", "reason": "Contains the token generation logic that needs to be extended" }
+    {"path": "src/...", "reason": "..."}
   ],
   "test_files": [
-    { "path": "src/auth/__tests__/token.test.ts", "reason": "Unit tests for the token module" }
+    {"path": "src/...", "action": "create|update", "reason": "..."}
   ],
-  "documentation_files": [
-    { "path": "docs/auth.md", "reason": "Documents the authentication flow" }
+  "doc_files": [
+    {"path": "README.md", "action": "update", "reason": "..."}
   ],
-  "risks": [
-    "Changing token validation logic may affect all routes using the auth middleware"
-  ],
-  "suggested_approach": "Brief description of the recommended implementation approach"
+  "risks": ["...", "..."],
+  "estimated_complexity": "low|medium|high"
 }
 ```
 
 ---
 
-## Prompt 2: Context Enrichment (Retry)
+## プロンプト 2: リトライ用コンテキスト強化
 
-Used when the Build Loop has failed at least once. Adds error context to help the Monitor Loop update the context package.
+Build Loop が失敗したタスクを再試行するとき、失敗原因を含めて渡します。
 
 ```
-You are an expert software engineer analyzing a failed code generation attempt.
-The autonomous Build Loop attempted to implement the following task but failed.
+あなたは熟練したソフトウェアエンジニアです。
+前回の実装試行が失敗しました。強化されたコンテキストで再試行のための分析をしてください。
 
-## Task
-Title: {task_title}
-Description: {task_description}
+## タスク（{attempt}回目の試行）
+タイトル: {task_title}
+説明: {task_description}
 
-## Previous Build Error (Attempt {attempt_number})
-File: {error_file}
-Line: {error_line}
-Error: {error_message}
-
-Full build output:
+## 前回の失敗情報
+失敗理由: {failure_reason}
+エラーメッセージ:
 ```
-{build_log_excerpt}
+{error_output}
 ```
 
-## Current File Content
-```{language}
-{current_file_content}
-```
+## 前回の変更内容
+{previous_diff}
 
-## Instructions
-1. Diagnose the root cause of the build error.
-2. Identify which additional files or context would help fix this error.
-3. Suggest a corrected implementation approach.
-4. List specific constraints the next Build Loop attempt should follow.
+## 追加コンテキスト（前回から追加）
+{additional_context_files}
 
-Respond in JSON format:
+## 指示
+1. 失敗の根本原因を特定する（「症状」ではなく「原因」を）
+2. 前回の実装アプローチで何が間違っていたかを説明する
+3. 成功するための修正アプローチを提案する
+4. 今回試行で優先すべきファイル・箇所を更新する
+
+以下の JSON 形式で回答してください:
 {
-  "root_cause": "Description of why the error occurred",
-  "additional_context_files": [
-    { "path": "types/auth.d.ts", "reason": "Contains the JwtOptions type definition" }
+  "root_cause": "...",
+  "previous_approach_issues": ["...", "..."],
+  "revised_approach": "...",
+  "priority_files": [
+    {"path": "src/...", "action": "..."}
   ],
-  "corrected_approach": "Description of the corrected implementation",
-  "constraints_for_next_attempt": [
-    "Use the JwtOptions interface from types/auth.d.ts",
-    "Do not import directly from jsonwebtoken; use the wrapper in src/lib/jwt.ts"
-  ]
+  "additional_constraints": ["...", "..."]
 }
 ```
 
 ---
 
-## Prompt 3: Task Decomposition
+## プロンプト 3: タスク分解
 
-Used for large tasks that exceed the Build Loop's single-prompt capacity. The Monitor Loop asks Copilot to break the task into sequential subtasks.
+大きなタスクを Build Loop で扱いやすいサブタスクに分割します。
 
 ```
-You are a senior software architect planning the implementation of a complex
-feature. Your goal is to decompose this task into a series of smaller, independent
-subtasks that can be executed sequentially by an autonomous agent.
+あなたはソフトウェアアーキテクトです。
+以下のタスクを、それぞれ独立して実装できる小さなサブタスクに分解してください。
 
-## Task
-Title: {task_title}
-Description: {task_description}
+## タスク
+タイトル: {task_title}
+説明: {task_description}
 
-## Constraints
-{constraints}
+## 制約
+- 各サブタスクは Build Loop の1回の実行（2時間以内）で完了できる規模にする
+- 各サブタスクは独立してテスト・コミットできる
+- 依存関係がある場合は実行順序を明示する
 
-## Repository Context
-{relevant_files_summary}
+## コードベース概要
+{architecture_summary}
 
-## Decomposition Rules
-- Each subtask must be independently buildable and testable
-- Subtasks must be listed in dependency order (no subtask should depend on a later one)
-- Each subtask should take at most 2–3 files to complete
-- Include a verification step for each subtask
+## 指示
+1. タスクを5個以下のサブタスクに分解する
+2. 各サブタスクの受け入れ基準を明記する
+3. 依存関係・実行順序を示す
+4. 予想所要時間を見積もる
 
-Respond in JSON format:
+以下の JSON 形式で回答してください:
 {
   "subtasks": [
     {
       "id": 1,
-      "title": "Add JwtRefreshOptions interface to types/auth.d.ts",
-      "description": "Define the TypeScript interface for refresh token configuration",
-      "files_to_modify": ["types/auth.d.ts"],
-      "verification": "TypeScript compilation succeeds; interface is exported",
-      "depends_on": []
-    },
-    {
-      "id": 2,
-      "title": "Implement refreshIfExpiring() in src/auth/token.ts",
-      "description": "Add the core refresh logic using the new JwtRefreshOptions interface",
-      "files_to_modify": ["src/auth/token.ts"],
-      "verification": "Unit tests pass; function returns correct refresh token",
-      "depends_on": [1]
-    }
-  ]
-}
-```
-
----
-
-## Prompt 4: Escalation Summary
-
-Used when the Monitor Loop prepares an escalation to a human reviewer.
-
-```
-You are an expert software engineer preparing a status report for human review.
-The autonomous development system has been unable to complete the following task
-after {attempt_count} attempts and requires human assistance.
-
-## Task
-Title: {task_title}
-Description: {task_description}
-
-## Attempt History
-{attempt_history}
-
-## Current State of Modified Files
-{modified_files_content}
-
-## Instructions
-Write a clear, concise escalation report for a human engineer who needs to:
-1. Understand what the system was trying to do
-2. Understand why it failed
-3. Know what action is needed to unblock progress
-
-Format:
-## Summary
-[2–3 sentences explaining the task and current status]
-
-## What Was Tried
-[Bullet list of attempts and outcomes]
-
-## Root Cause
-[Your best assessment of why the system cannot proceed autonomously]
-
-## Recommended Human Action
-[Specific, actionable steps the human should take]
-
-## Relevant Files
-[List of files the human should review]
-```
-
----
-
-## Prompt 5: Idle State Repository Health Check
-
-Used by the Monitor Loop in idle mode to check for repository health issues.
-
-```
-You are a senior software engineer performing a repository health check.
-Review the following information and identify any issues that should be
-addressed proactively.
-
-## Repository Status
-- Failing CI checks: {failing_checks}
-- Open PRs older than 7 days: {stale_prs}
-- Issues labeled 'bug' with no assignee: {unassigned_bugs}
-- Last successful deployment: {last_deployment}
-- Dependency security advisories: {security_advisories}
-
-## Instructions
-Identify the top 3 issues that should be prioritized and explain why.
-For each issue, suggest a specific action.
-
-Respond in JSON format:
-{
-  "health_issues": [
-    {
-      "priority": 1,
-      "type": "security",
-      "description": "3 HIGH severity CVEs in npm dependencies",
-      "recommended_action": "Run npm audit fix; review breaking changes in lodash upgrade",
-      "estimated_effort": "low"
+      "title": "...",
+      "description": "...",
+      "acceptance_criteria": ["...", "..."],
+      "depends_on": [],
+      "estimated_minutes": 90
     }
   ],
-  "overall_health": "warn",
-  "summary": "Repository is functional but has 3 dependency vulnerabilities that should be addressed this sprint"
+  "execution_order": [1, 2, 3],
+  "total_estimated_minutes": 270
 }
 ```
 
 ---
 
-## Prompt Variables Reference
+## プロンプト 4: エスカレーションサマリー
 
-| Variable                  | Source                              | Description                                   |
-|---------------------------|-------------------------------------|-----------------------------------------------|
-| `{task_title}`            | GitHub Issue title                  | Short task name                               |
-| `{task_description}`      | GitHub Issue body                   | Full task requirements                        |
-| `{repository_file_tree}`  | `git ls-files` output               | File listing (truncated to top-level dirs)    |
-| `{recent_commits}`        | `git log --oneline -10`             | Last 10 commit messages                       |
-| `{related_issue_summaries}`| GitHub API                         | Summaries of linked issues                    |
-| `{attempt_number}`        | State Manager                       | Current retry count                           |
-| `{error_file}`            | Build Loop error parser             | File where build error occurred               |
-| `{error_line}`            | Build Loop error parser             | Line number of error                          |
-| `{error_message}`         | Build Loop error parser             | Exact error message from build output         |
-| `{build_log_excerpt}`     | Build Loop logs                     | Last 50 lines of build output                 |
-| `{current_file_content}`  | Repository file reader              | Current content of the failing file           |
-| `{attempt_history}`       | State Manager                       | JSON array of all previous attempt outcomes   |
-| `{failing_checks}`        | GitHub Checks API                   | Names of currently failing CI checks          |
+Claude が人間の判断を必要と判断したとき、`.loop-alert.md` に出力します。
+
+```
+あなたは自律開発システムのモニタリング担当です。
+以下の状況で人間のエンジニアへのエスカレーションが必要と判断しました。
+エスカレーションサマリーを作成してください。
+
+## エスカレーション理由
+タスク: {task_title}
+試行回数: {attempt_count} / {max_attempts}
+最終エラー: {last_error}
+
+## これまでの試みの履歴
+{attempt_history}
+
+## 現在のコードの状態
+{current_diff}
+
+## 指示
+以下の Markdown 形式でエスカレーションサマリーを出力してください。
+エンジニアがすぐに状況を理解して判断できる内容にする。
+
+---
+# 🚨 エスカレーション: {task_title}
+
+## 状況サマリー
+[2〜3文で現状を説明]
+
+## 試みた内容と結果
+1. [試み1]: [結果]
+2. [試み2]: [結果]
+
+## 根本的な問題
+[技術的な問題の詳細]
+
+## 人間に必要な判断
+[ ] 実装方針の決定: [選択肢 A / 選択肢 B]
+[ ] 設計変更の承認
+[ ] その他: [詳細]
+
+## 対応後の再開手順
+1. [手順1]
+2. [手順2]
+---
+```
 
 ---
 
-## Related Documents
+## プロンプト 5: ヘルスチェック
 
-- [Monitor Loop](../loops/monitor-loop.md)
-- [Verify Loop Prompts](verify-loop-prompts.md)
-- [Best Practices for Autonomous Sessions](../best-practices/autonomous-session-best-practices.md)
+Monitor Loop が定期的にプロジェクトの健全性を確認します。
+
+```
+あなたはソフトウェア品質監視システムです。
+プロジェクトの健全性を包括的にチェックして、問題を早期発見してください。
+
+## チェック対象
+リポジトリ: {repository_path}
+最終チェック: {last_check_time}
+
+## チェック項目
+1. ビルド状態: {build_status}
+2. テスト状態: {test_summary}
+3. カバレッジ: {coverage_summary}
+4. lint エラー: {lint_errors}
+5. セキュリティアラート: {security_alerts}
+6. 依存関係: {outdated_packages}
+7. 最近のコミット: {recent_commits}
+
+## 指示
+1. 各項目を「✅ 正常 / ⚠️ 要注意 / 🔴 要対応」で評価する
+2. 問題がある項目の根本原因を分析する
+3. 推奨対応を優先度順に列挙する
+4. TASKS.md に追加すべきタスクを提案する
+
+以下の Markdown 形式で出力してください:
+
+---
+# ヘルスチェックレポート: {timestamp}
+
+## 概要ステータス: [✅ 健全 / ⚠️ 注意 / 🔴 要対応]
+
+| 項目 | 状態 | 詳細 |
+|-----|------|------|
+| ビルド | [✅/⚠️/🔴] | ... |
+| テスト | [✅/⚠️/🔴] | ... |
+| カバレッジ | [✅/⚠️/🔴] | ... |
+| lint | [✅/⚠️/🔴] | ... |
+| セキュリティ | [✅/⚠️/🔴] | ... |
+
+## 要対応項目
+1. [問題1]: [対応方法]
+
+## TASKS.md への追加提案
+- [ ] [タスク提案1]
+---
+```
+
+---
+
+## 関連ドキュメント
+
+- [Verify Loop プロンプト](verify-loop-prompts.md)
+- [Monitor Loop リファレンス](../loops/monitor-loop.md)
+- [ループコマンドリファレンス](../operations/loop-command-usage.md)

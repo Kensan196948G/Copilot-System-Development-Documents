@@ -1,220 +1,259 @@
-# Best Practices for Autonomous Development Sessions
+# 自律開発セッションのベストプラクティス（Best Practices for Autonomous Sessions）
 
-## Overview
+## 概要
 
-Running long autonomous development sessions requires discipline in how tasks are defined, how the system is configured, and how humans interact with the output. This guide distills the most important practices for getting reliable, high-quality results from the Copilot Triple Loop system.
-
----
-
-## 1. Task Definition Quality
-
-The single most important factor in autonomous development quality is **how well tasks are written**. The AI agent cannot infer intent, resolve ambiguous requirements, or make architectural decisions without clear guidance.
-
-### ✅ Do
-
-- **Be specific about scope**: Name the exact files, functions, or modules to be changed.
-- **Include acceptance criteria**: Use a checklist that can be mechanically verified.
-- **State constraints explicitly**: "Must not change the public API", "Must maintain backwards compatibility with Node 18".
-- **Reference related code**: Link to existing functions that the new code should follow as a pattern.
-- **Specify the test requirement**: "Include unit tests for all new public functions".
-
-### ❌ Don't
-
-- Write vague tasks: "Improve the auth module" → the agent will guess at scope.
-- Conflate multiple independent changes in one task → decompose instead.
-- Rely on implicit knowledge: "Fix it the way we always do it" → the agent has no memory of past conventions unless they are in the codebase.
-- Set unrealistic scope: a single task should be completable in ≤ 5 file changes.
-
-### Example: Good vs. Bad Task Descriptions
-
-**Bad:**
-> Fix the authentication issue.
-
-**Good:**
-> When a valid user presents an expired JWT token to any authenticated route, the API should return HTTP 401 with body `{"error": "token_expired", "refresh_url": "/auth/refresh"}` instead of the current generic 500 response. Modify `src/auth/middleware.ts` and add a test to `src/auth/__tests__/middleware.test.ts`. Do not change any other error response formats.
+Triple Loop 15H システムを使った自律型開発で、高品質な成果を安定して
+得るためのベストプラクティスをまとめます。
+タスク定義・コンテキスト管理・運用パターン・安全策を網羅します。
 
 ---
 
-## 2. Context Management
+## 1. タスク定義の品質（最重要）
 
-Autonomous agents are limited by their context window. The Monitor Loop handles context selection, but you can improve it by:
+**自律開発の品質はタスクの書き方で9割決まります。**
 
-- **Keeping files focused**: large files with many concerns make context selection harder. Prefer smaller, single-responsibility modules.
-- **Writing good inline documentation**: the Monitor Loop's context-gathering prompts use docstrings and comments to determine relevance.
-- **Maintaining `ARCHITECTURE.md` or similar docs**: if a high-level design document exists, the Monitor Loop will include it in context for architectural tasks.
-- **Linking issues**: reference related issues in GitHub Issue bodies so the Monitor Loop can fetch their context.
+### ✅ やること
+
+- **スコープを具体的に**: 変更するファイル・関数・モジュールを明記する
+- **受け入れ基準をチェックリストで**: 機械的に検証できる基準を書く
+- **制約条件を明示する**: 「既存 API を変更しない」「Node 18 互換を維持する」
+- **関連コードを参照する**: 「src/users/ の既存実装パターンに合わせる」
+- **テスト要件を書く**: 「新規 public 関数にはすべてユニットテストを追加する」
+
+### ❌ やらないこと
+
+- 曖昧なタスク: 「認証モジュールを改善する」→ AI はスコープを推測してしまう
+- 複数変更を1タスクに詰め込む → 独立した変更は別タスクに分ける
+- 暗黙の知識に依存: 「いつものやり方で直して」→ 過去の文脈を持たない
+- 非現実的なスコープ: 1タスク = 5ファイル以内の変更が目安
+
+### ✅ 良い例 vs ❌ 悪い例
+
+**悪い例:**
+```markdown
+- [ ] 認証の問題を修正する
+```
+
+**良い例:**
+```markdown
+- [ ] 有効期限切れ JWT トークンのエラーレスポンスを修正する
+  - 対象ファイル: src/auth/middleware.ts
+  - 現状: 期限切れトークンで 500 エラーが返る
+  - 期待: HTTP 401 + {"error": "token_expired", "refresh_url": "/auth/refresh"}
+  - テスト追加: src/auth/__tests__/middleware.test.ts
+  - 他のエラーレスポンス形式は変更しない
+```
 
 ---
 
-## 3. Configuration Tuning
+## 2. コンテキスト管理
 
-### Start Conservative
+コンテキストウィンドウを効果的に使うための準備：
 
-When starting with a new codebase, begin with conservative settings:
+| 対策 | 理由 |
+|-----|------|
+| ファイルを小さく保つ（≤200行/ファイル） | 大きなファイルはコンテキスト選択が難しくなる |
+| JSDoc / docstring を書く | Monitor Loop がコンテキスト収集に活用する |
+| AGENTS.md をメンテナンスする | 設計判断・アーキテクチャの記録が AI の判断精度を向上させる |
+| ARCHITECTURE.md を置く | 全体設計を示すと大規模タスクの精度が上がる |
+
+### AGENTS.md の効果的な書き方
+
+```markdown
+# AGENTS.md
+
+## アーキテクチャ原則
+- コントローラーは入出力のみ担当（ビジネスロジックを持たない）
+- サービスは純粋関数として書く（副作用を最小限に）
+- リポジトリは DB アクセスのみ（データ変換をしない）
+
+## テスト方針
+- ユニットテスト: 純粋な関数・クラスメソッド（Jest）
+- 統合テスト: API エンドポイント（Supertest + テスト DB）
+- E2E テスト: クリティカルパスのみ（Playwright）
+- カバレッジ目標: 80% 以上
+
+## 命名規約
+- API エンドポイント: /api/v1/[リソース複数形] （RESTful）
+- エラーコード: snake_case（"token_expired"）
+- ブランチ名: feature/[issue番号]-[概要] または fix/[issue番号]-[概要]
+
+## 既知の注意事項
+- User.email は必ず toLowerCase() してから保存する
+- レート制限: IP ベースで 100 req/min（src/middleware/rateLimit.ts）
+- DB マイグレーション: 必ず後方互換にする（ダウンタイムなしデプロイのため）
+```
+
+---
+
+## 3. 運用スケジュール
+
+### 日次ルーティン
+
+```
+朝（5分）:
+  1. TASKS.md を確認・更新（優先度の確認・新タスクの追加）
+  2. /loop 900m で起動（放置）
+
+夕方（10分）:
+  1. 作業日報（docs/[日付]_自律開発作業報告.md）を確認
+  2. git log --oneline で実装内容を確認
+  3. GitHub PR を確認（必要に応じてレビュー・マージ）
+  4. 翌日のタスクを TASKS.md に追加
+```
+
+### 週次ルーティン
+
+```
+週末（30分）:
+  1. AGENTS.md の設計判断・学習事項を確認・更新
+  2. 技術的負債・残課題を TASKS.md に追加
+  3. セキュリティアラートの確認（dependabot）
+  4. テストカバレッジの推移を確認
+```
+
+### 週次消費量の管理
+
+| 運用モード | 週消費 | リスク |
+|-----------|-------|-------|
+| 週5日 × 15H | 75H | ✅ 安全圏 |
+| 週6日 × 15H | 90H | ⚠️ 要監視 |
+| 週7日 × 15H | 105H | ❌ 超過リスク高 |
+
+> 週次リミットに近づいたら `/loop 450m`（8H版）に切り替える
+
+---
+
+## 4. タスクの設計パターン
+
+### パターン A: 小タスク（推奨）
+
+```markdown
+1タスク = 1機能 or 1バグ修正 or 1リファクタリング
+所要時間: Build 2H 以内
+変更ファイル数: 5以内
+```
+
+### パターン B: 大タスクの分割方法
+
+大きなタスクは以下のように分割：
+
+```
+❌ 悪い例:
+- [ ] ユーザー管理機能を実装する
+
+✅ 良い例（分割後）:
+- [ ] データベーススキーマ設計（users / sessions テーブル）
+- [ ] ユーザー登録 API（POST /api/v1/users）+ テスト
+- [ ] ユーザーログイン API（POST /api/v1/auth/login）+ テスト
+- [ ] JWT 認証ミドルウェア + テスト
+- [ ] ユーザー一覧・詳細 API（GET /api/v1/users）+ テスト
+```
+
+### パターン C: 依存関係のある分割
+
+```markdown
+## Priority: High
+- [ ] [Day 1] データベーススキーマ設計  ← 最初に実施
+- [ ] [Day 2] ユーザー登録 API          ← スキーマ完了後
+- [ ] [Day 3] 認証ミドルウェア          ← 登録 API 完了後
+```
+
+---
+
+## 5. 品質ゲートの設定
+
+### 推奨設定（loop-config.yaml）
 
 ```yaml
-build:
-  max_retries: 3        # lower until you understand failure patterns
-  timeout_minutes: 10
-
 verify:
   coverage_thresholds:
-    lines: 70           # lower threshold until baseline is measured
+    lines: 80      # ライン カバレッジ
+    branches: 75   # ブランチ カバレッジ
+  lint_check: true
+  typecheck: true
+  security_scan: true
+  auto_merge: false  # PR の自動マージは false 推奨（人間確認のため）
 ```
 
-### Increase Gradually
+### カバレッジが足りない場合
 
-As the system proves reliable on your codebase, increase quality thresholds and task complexity.
-
-### Recommended Settings by Project Maturity
-
-| Maturity     | `max_retries` | Coverage Threshold | Tasks per Session |
-|--------------|---------------|--------------------|--------------------|
-| New codebase | 3             | 60%                | 2–3               |
-| Established  | 5             | 80%                | 5–10              |
-| Mature       | 5             | 90%                | 10–20             |
+```
+カバレッジ < 80%
+  ↓
+Verify Loop が追加テストを自動生成
+  ↓ それでも達成できない場合
+TASKS.md に「テスト追加が必要」として記録
+```
 
 ---
 
-## 4. Human-in-the-Loop Checkpoints
+## 6. ロールバック戦略
 
-Fully autonomous operation is the goal, but certain decisions must involve humans.
-
-### Always Require Human Review For:
-
-- **Security-related changes**: authentication, authorization, cryptography, input validation
-- **Database schema changes**: migrations are difficult to roll back
-- **API contract changes**: adding/removing/renaming public endpoints
-- **Dependency upgrades**: especially major version upgrades
-- **Performance-critical code**: code on hot paths or with O(n²) complexity risk
-- **Deletion of files or large code blocks**: irreversible and easy to do incorrectly
-
-### Use Automatic Merge Only For:
-
-- Documentation updates
-- Dependency patch-level upgrades with no test regressions
-- Test additions that do not modify existing tests
-- Formatting and lint auto-fixes
-
----
-
-## 5. Overnight Session Strategy
-
-The most productive use of autonomous development is running sessions overnight, so engineers return to reviewed PRs each morning.
-
-### Pre-Session Checklist (End of Day)
-
-- [ ] Review and label any new GitHub Issues with `autonomous`
-- [ ] Ensure all acceptance criteria are clearly written
-- [ ] Confirm the test suite is passing on the main branch (clean baseline)
-- [ ] Run `npx copilot-loops start --dry-run` to verify configuration
-- [ ] Set escalation recipients in `loop-config.yaml`
-- [ ] Start the session: `npx copilot-loops start --daemon`
-
-### Post-Session Checklist (Start of Day)
-
-- [ ] Run `npx copilot-loops status` to see what was completed
-- [ ] Review all auto-generated PRs: `gh pr list --label autonomous`
-- [ ] Review any escalated issues: `gh issue list --label needs-human`
-- [ ] Review session logs for unexpected patterns: `npx copilot-loops logs --since 12h`
-- [ ] Merge or request changes on ready PRs
-- [ ] Reset any failed tasks as needed
-- [ ] Optionally start a new session for the next batch
-
----
-
-## 6. Monitoring System Health
-
-### Watch for These Warning Signs
-
-| Signal                                   | Likely Cause                                   | Action                                    |
-|------------------------------------------|------------------------------------------------|-------------------------------------------|
-| Same task retries > 3 times              | Ambiguous requirements or missing context      | Rewrite the issue with more specifics     |
-| Build Loop always fails on first attempt | Context packages missing critical files        | Review Monitor Loop context selection     |
-| Coverage always below threshold          | Test style not compatible with coverage tool   | Adjust coverage tool configuration        |
-| All tasks escalate to human              | Quality thresholds too strict for codebase     | Lower thresholds; build baseline coverage |
-| PRs contain many unrelated file changes  | Context files not scoped correctly             | Add `context_files` hints to issue body   |
-| Copilot CLI rate limit errors            | Too many parallel tasks                        | Reduce parallelism in config              |
-
-### Log Review Commands
+自律開発中に予期せぬ問題が発生した場合：
 
 ```bash
-# Check for error patterns
-npx copilot-loops logs --since 24h | grep ERROR
+# 直前のコミットに戻す
+git revert HEAD
 
-# Count build failures by task
-npx copilot-loops logs --since 24h | grep "Build failed" | cut -d' ' -f4 | sort | uniq -c
+# 特定コミットに戻す
+git revert [commit-sha]
 
-# Review escalations
-npx copilot-loops logs --since 24h | grep "ESCALATION"
+# 作業をすべて破棄してリセット
+git reset --hard HEAD~[n]  # ⚠️ ローカルの変更が消える
+
+# セーフポイントを作る（長時間前に）
+git tag safe-point-$(date +%Y%m%d)
 ```
 
 ---
 
-## 7. Security Practices
+## 7. セキュリティ上の注意
 
-### Protect Sensitive Branches
+| 禁止事項 | 理由 |
+|---------|------|
+| Secrets・API キーを TASKS.md に記載しない | ログ・コミット経由で漏洩するリスク |
+| `--dangerously-skip-permissions` を本番環境で使用しない | 全権限での実行は開発環境のみ |
+| 本番 DB への接続情報を渡さない | テスト DB のみを使用する |
+| git push（本番適用）はユーザー確認後 | `auto_merge: false` で防止 |
 
-Configure branch protection rules so that the autonomous system can only merge to non-protected branches:
+---
 
-```yaml
-build:
-  branch_prefix: "autonomous/"     # all autonomous branches namespaced
-  # NEVER allow direct push to main or release branches
+## 8. よくある問題と対処
+
+| 問題 | 原因 | 対処 |
+|-----|------|------|
+| 品質が低い実装が生成される | タスク記述が曖昧 | TASKS.md の記述を具体化する |
+| 同じエラーで何度もリトライする | 根本原因の理解不足 | エラーログを .loop-alert.md で確認して人間が補足 |
+| テストカバレッジが上がらない | テストしにくい設計 | リファクタリングタスクを先に実施する |
+| 既存の設計から外れた実装になる | AGENTS.md が古い | AGENTS.md の設計方針を更新する |
+| セッションが途中で止まる | リミット到達 | 自動的に最終処理に移行。翌日に続き |
+
+---
+
+## 9. チームでの活用
+
+複数人チームで Triple Loop を使う場合：
+
 ```
+担当割り当て:
+  TASKS.md に担当者を明記する
+  - [ ] [AI 担当] JWT 認証実装
+  - [ ] [人間 担当] ビジネス要件の整理・承認
 
-### Review Copilot Output for Security Issues
+コードレビュー:
+  PR は必ず人間がレビューしてからマージする
+  （auto_merge: false を守る）
 
-Before merging any autonomously generated PR, verify:
-
-- No hardcoded credentials, tokens, or secrets
-- No new direct SQL string construction (use parameterized queries)
-- No user input passed directly to shell commands
-- No new `eval()` calls or equivalent
-
-### Audit Logging
-
-The system logs all Copilot prompts and responses. Retain these logs for at least 30 days:
-
-```yaml
-logging:
-  audit_log_path: ~/.copilot-loops/audit/
-  retention_days: 30
-  include_full_prompts: true
-  include_full_responses: true
+AGENTS.md の共有:
+  チームの設計判断は AGENTS.md で一元管理する
 ```
 
 ---
 
-## 8. Iterative Improvement
+## 関連ドキュメント
 
-Treat the autonomous system itself as a product you are continuously improving.
-
-### Weekly Review
-
-- Which tasks consistently fail? → Improve task template for that type of work
-- Which prompts produce low-quality output? → Refine prompt templates
-- What types of bugs appear in auto-generated PRs? → Add those checks to the Verify Loop
-- What is the average task completion rate? → Track as a KPI
-
-### Feedback Loop
-
-When you reject a PR or request changes, capture that feedback:
-
-```bash
-# After rejecting a PR with reason
-npx copilot-loops task feedback TASK-42 \
-  --outcome rejected \
-  --reason "Generated function does not handle the case where userId is null"
-```
-
-This feedback is stored in the State Manager and used to improve future context packages for similar tasks.
-
----
-
-## Related Documents
-
-- [Autonomous Development Workflow](../operations/autonomous-development-workflow.md)
-- [Triple Loop Architecture](../architecture/triple-loop-architecture.md)
-- [Monitor Loop Prompts](../prompts/monitor-loop-prompts.md)
-- [Verify Loop Prompts](../prompts/verify-loop-prompts.md)
+- [起動ガイド](../operations/copilot-start-guide.md)
+- [ループコマンドリファレンス](../operations/loop-command-usage.md)
+- [Triple Loop アーキテクチャ](../architecture/triple-loop-architecture.md)
+- [タスクプロンプト一覧](../tasks/README.md)

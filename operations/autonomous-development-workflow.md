@@ -1,314 +1,259 @@
-# Autonomous Development Workflow
+# 自律開発ワークフロー（Autonomous Development Workflow）
 
-## Overview
+## 概要
 
-This document describes the end-to-end workflow for running autonomous software development sessions with the Triple Loop system. It covers the full lifecycle from task creation to merged Pull Request, including decision points, human-in-the-loop checkpoints, and post-session cleanup.
-
----
-
-## Workflow Summary
-
-```
-1. Task Preparation
-   └── Create labeled GitHub Issues
-
-2. Session Start
-   └── Start loop orchestrator
-
-3. Monitor Phase
-   └── Monitor Loop selects highest-priority task
-   └── Gathers context, builds context package
-
-4. Build Phase
-   └── Build Loop generates code via Copilot CLI
-   └── Runs build; retries with error context if needed
-
-5. Verify Phase
-   └── Verify Loop runs tests, lint, security, coverage
-   └── All gates pass → PR created
-   └── Any gate fails → rework context sent back to Monitor
-
-6. Human Review
-   └── Engineer reviews auto-generated PR
-   └── Approves and merges (or requests changes)
-
-7. Session End
-   └── All tasks complete or escalated
-   └── Loop system shuts down gracefully
-```
+Triple Loop 15H システムを使った自律型ソフトウェア開発の
+エンドツーエンドワークフローです。タスク準備からマージ・日報出力までの
+全フローを解説します。
 
 ---
 
-## Phase 1: Task Preparation
+## ワークフロー全体像
 
-### Creating Effective Tasks
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 事前準備（人間が実施）                                       │
+│  1. CLAUDE.md が ~/.claude/ に配置済みであることを確認      │
+│  2. TASKS.md を作成してタスクを記載                          │
+│  3. git リポジトリが初期化済みであることを確認              │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│ セッション開始（人間が実施）                                 │
+│  $ claude --dangerously-skip-permissions                    │
+│  > /loop 900m [コマンド文面を貼り付け] Enter                │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+          ┌────────────┴────────────┐
+          ▼                         ▼
+  ┌───────────────┐         ┌───────────────┐
+  │  Cycle 1      │         │  Cycle 2      │
+  │  (7時間)      │         │  (7時間)      │
+  └───────┬───────┘         └───────┬───────┘
+          │                         │
+    Monitor (30m)             Monitor (30m)
+          │                         │
+    Build (2h)                Build (2h)
+          │                         │
+    Verify (4h)               Verify (4h)
+          │                         │
+    CD3 (30m)                 最終処理 (30m)
+                                    │
+                              ┌─────┴──────┐
+                              │            │
+                         git push      作業日報
+                         PR作成/        出力
+                         マージ
+```
 
-The quality of autonomous output is directly proportional to the quality of the task description. Use this template for GitHub Issues:
+---
+
+## Phase 1: 事前準備
+
+### TASKS.md の書き方（重要）
+
+タスクの記述品質が実装品質に直結します。
+
+**最低限の記述（動きはするが品質は低い）:**
+```markdown
+- [ ] ユーザー認証を実装する
+```
+
+**推奨の記述（高品質な実装が生成される）:**
+```markdown
+- [ ] JWT を使ったユーザー認証 API を実装する
+  - POST /api/v1/auth/login（メール + パスワード → JWT 返却）
+  - POST /api/v1/auth/refresh（リフレッシュトークン → 新 JWT）
+  - POST /api/v1/auth/logout（トークン無効化）
+  - Zod でバリデーション
+  - bcrypt でパスワードハッシュ（rounds: 12）
+  - Jest で統合テストを作成（80% カバレッジ目標）
+  - 参考: src/users/ ディレクトリの既存実装パターンに合わせる
+```
+
+### AGENTS.md の初期化（推奨）
 
 ```markdown
-## Task Description
-[What needs to be done, in 2–4 sentences]
+# AGENTS.md — プロジェクト設計判断・AI 学習記録
 
-## Acceptance Criteria
-- [ ] Criterion 1
-- [ ] Criterion 2
-- [ ] Criterion 3
+## アーキテクチャ方針
+- レイヤ構造: Controller → Service → Repository
+- エラー処理: RFC 7807 Problem Details 形式
+- テスト: Jest + Supertest（統合テスト中心）
 
-## Constraints
-- Must not break existing behavior in [module]
-- Must follow [coding standard or convention]
-- Must include unit tests
+## 技術スタック
+- Runtime: Node.js 20
+- Framework: Fastify
+- ORM: Prisma + PostgreSQL
+- Auth: JWT（jsonwebtoken）
 
-## Context Files
-<!-- Optional: list specific files the agent should focus on -->
-- src/[relevant-file].ts
-- src/[another-file].ts
-
-## Related Issues
-<!-- Optional: link related issues for context -->
-- Depends on #42
-- Related to #39
-```
-
-### Issue Labeling
-
-Label your issue with the `autonomous` label to add it to the work queue. The system processes issues in priority order based on:
-
-1. Milestone (earlier milestone = higher priority)
-2. Issue creation date (older = higher priority)
-3. Explicit `priority:high` label
-
----
-
-## Phase 2: Session Start
-
-Start a development session before the team's working hours so the system can make progress autonomously:
-
-```bash
-# Ensure your configuration is up to date
-npx copilot-loops start --dry-run
-
-# Start the session
-npx copilot-loops start --daemon
-
-# Verify the system is running
-npx copilot-loops status
-```
-
-**Recommended session schedule:**
-- Start: before work (e.g., 06:00)
-- Human review window: start of day (e.g., 09:00)
-- Evening run: after hours (e.g., 18:00–06:00 overnight)
-
----
-
-## Phase 3: Monitor Phase
-
-The Monitor Loop runs every 2 minutes (configurable) and performs the following steps:
-
-1. **Poll task queue** – read all open issues labeled `autonomous`
-2. **Select task** – pick the highest-priority task that is not already in progress
-3. **Gather context** – identify relevant files using import graphs, git history, and issue references
-4. **Build context package** – assemble a structured JSON package with task details, code snippets, constraints, and retry history
-5. **Dispatch to Build Loop** – send the context package
-
-### Monitoring Loop Output (Example)
-
-```
-[2024-01-15 06:02:00] [Monitor] Cycle 1 starting
-[2024-01-15 06:02:01] [Monitor] Found 3 tasks in queue
-[2024-01-15 06:02:01] [Monitor] Selected: TASK-42 "Add JWT expiry refresh logic" (priority: high)
-[2024-01-15 06:02:03] [Monitor] Context gathered: 5 files, 3800 tokens
-[2024-01-15 06:02:03] [Monitor] Dispatching to Build Loop
+## 命名規約
+- ファイル: kebab-case（user-service.ts）
+- クラス: PascalCase（UserService）
+- 関数: camelCase（getUserById）
 ```
 
 ---
 
-## Phase 4: Build Phase
+## Phase 2: Monitor Loop（30分）
 
-The Build Loop receives the context package and generates code:
+Monitor Loop が以下を実施します：
 
-1. **Construct prompt** – assemble a detailed Copilot prompt with task context
-2. **Invoke Copilot CLI** – call `gh copilot suggest` with the constructed prompt
-3. **Apply changes** – write Copilot's output to the appropriate files
-4. **Run build** – execute the project's build command
-5. **Evaluate result**:
-   - Success → commit and notify Verify Loop
-   - Failure → parse error, enrich prompt, retry (up to `max_retries`)
+1. **コードベース解析**
+   - 最新の git log・diff を確認
+   - テスト失敗・lint エラーを検出
+   - セキュリティアラートを確認
 
-### What Good Build Loop Output Looks Like
+2. **タスク優先度決定**
+   - TASKS.md から未完了タスクを取得
+   - 依存関係・優先度で並び替え
+   - 最優先タスクを Build Loop に渡す
+
+3. **コンテキストパッケージ生成**
+   - 関連ファイル（最大20件）を選定
+   - 設計判断・制約条件をまとめる
+   - `.loop-monitor-report.md` に出力
+
+**出力物:** `.loop-monitor-report.md`
+
+---
+
+## Phase 3: Build Loop（2時間）
+
+Build Loop が5段階ステップで実装します：
 
 ```
-[2024-01-15 06:02:05] [Build] TASK-42 attempt 1/5
-[2024-01-15 06:02:05] [Build] Prompt constructed (2100 tokens)
-[2024-01-15 06:02:18] [Build] Copilot response received (450 tokens)
-[2024-01-15 06:02:18] [Build] Applying changes to src/auth/token.ts
-[2024-01-15 06:02:19] [Build] Running: npm run build
-[2024-01-15 06:02:28] [Build] Build succeeded
-[2024-01-15 06:02:29] [Build] Committed: autonomous/TASK-42 (a1b2c3d)
-[2024-01-15 06:02:29] [Build] Notifying Verify Loop
+Step 1: 要件分析・設計（15分）
+  ├─ TASKS.md のタスク詳細を解析
+  ├─ 関連ファイルの現状を確認
+  ├─ 実装方針を AGENTS.md に記録
+  └─ コミット: なし（設計フェーズ）
+
+Step 2: コア実装（45分）
+  ├─ メイン機能を実装
+  ├─ 既存コードのパターンに従う
+  └─ コミット: feat: [機能名] の実装
+
+Step 3: テスト実装（30分）
+  ├─ ユニットテスト / 統合テストを作成
+  ├─ カバレッジ 80% 以上を目標
+  └─ コミット: test: [機能名] のテストを追加
+
+Step 4: lint / typecheck 修正（15分）
+  ├─ ESLint / tsc のエラーをすべて修正
+  ├─ コードフォーマット適用
+  └─ コミット: fix: lint / typecheck エラーを修正
+
+Step 5: ドキュメント更新（15分）
+  ├─ JSDoc コメントを追加
+  ├─ README / API ドキュメントを更新
+  └─ コミット: docs: [機能名] のドキュメントを追加
+```
+
+**CI 修復 AI:** ビルド・テスト失敗時に最大15回自動修復
+
+**出力物:** `.loop-build-handoff.md` + main ブランチへのコミット
+
+---
+
+## Phase 4: Verify Loop（4時間）
+
+Verify Loop が多角的な品質検証を実施します：
+
+| 検証項目 | ツール | 基準 |
+|---------|-------|------|
+| コードレビュー | Agent Teams（QA/Architect/Security） | Critical/High 0件 |
+| ユニットテスト | Jest / Vitest / pytest | 全件パス |
+| 統合テスト | Supertest / httpx | 全件パス |
+| カバレッジ | coverage | ライン 80% 以上 |
+| lint | ESLint / flake8 | エラー 0件 |
+| typecheck | tsc / mypy | エラー 0件 |
+| セキュリティ | npm audit / Semgrep | High 0件 |
+
+**自動修正フロー:**
+```
+検証失敗
+  └─ 問題分析 + 修正実装
+  └─ 再検証（最大15回）
+    ├─ 成功 → PR 作成準備
+    └─ 15回で解決不可 → TASKS.md に記録 + エスカレーション
+```
+
+**出力物:** `.loop-verify-report.md`
+
+---
+
+## Phase 5: 最終処理（30分）
+
+2サイクル完了後（または15時間経過時）に実行：
+
+```bash
+# 自動実行される処理
+git push origin main                      # 全コミットをプッシュ
+gh pr create --title "..." --body "..."   # PR 作成
+gh pr merge --merge                       # PR マージ（設定による）
+
+# 作業日報の出力
+docs/[YYYY-MM-DD]_自律開発作業報告.md
+```
+
+**作業日報の構成:**
+```markdown
+# [YYYY-MM-DD] 自律開発作業報告
+
+## サマリー
+- 稼働時間: 15時間（2サイクル）
+- 完了タスク: X件
+- コミット数: X件
+
+## Cycle 1 実施内容
+### Monitor Loop 結果
+### Build Loop 実装内容
+### Verify Loop レビュー結果
+
+## Cycle 2 実施内容
+...
+
+## 次回への申し送り
+- 未完了タスク
+- 技術的負債・注意事項
 ```
 
 ---
 
-## Phase 5: Verify Phase
+## 人間のレビューポイント
 
-The Verify Loop runs quality gates against the build artifact:
+Triple Loop が自動化する範囲でも、以下のポイントは人間が確認することを推奨：
 
-1. **Run tests** – full test suite
-2. **Check coverage** – compare against threshold
-3. **Run linter** – check for new violations
-4. **Run security scan** – check for new vulnerabilities
-5. **Produce quality report** – structured pass/fail for each gate
-6. **Decide next step**:
-   - All gates pass → open Pull Request
-   - Any gate fails → send rework context to Monitor Loop
-
-### Rework Cycle
-
-When a gate fails, the system does not abandon the task. Instead:
-
-1. Verify Loop produces a detailed failure report
-2. Monitor Loop re-queues the task with the failure report appended to context
-3. Build Loop receives enriched context including failure details
-4. Build Loop attempts to fix the failing tests or lint issues
-
-This cycle can repeat up to `max_retries` times before the task is escalated to human review.
+| タイミング | 確認内容 | 所要時間 |
+|-----------|---------|---------|
+| セッション開始前 | TASKS.md の内容・優先度 | 5分 |
+| セッション終了後 | 作業日報・git log | 10分 |
+| PR マージ前 | コードレビュー（任意） | 15〜30分 |
+| 週次 | AGENTS.md の設計判断 | 10分 |
 
 ---
 
-## Phase 6: Human Review
+## エスカレーション対応
 
-When the Verify Loop passes all gates, it automatically opens a Pull Request:
+Claude がエスカレーション（人間への判断要求）を出した場合：
 
 ```
-autonomous: TASK-42 Add JWT expiry refresh logic
-
-## Summary
-Implemented JWT token refresh logic in src/auth/token.ts. When a token
-is within 5 minutes of expiry, the middleware now automatically issues
-a refresh token using the configured RS256 key.
-
-## Changes
-- src/auth/token.ts: Added refreshIfExpiring() function
-- src/auth/middleware.ts: Integrated refresh logic into request pipeline
-- src/auth/__tests__/token.test.ts: Added 4 test cases for refresh logic
-
-## Quality Gates
-- ✓ Tests: 146 passed, 0 failed
-- ✓ Coverage: 83.2% (threshold: 80%)
-- ✓ Lint: 0 new violations
-- ✓ Security: 0 new CVEs
-
-Generated by Copilot Autonomous System | Task: TASK-42 | Attempt: 2
-```
-
-### Human Reviewer Checklist
-
-Before approving an autonomously generated PR:
-
-- [ ] Code changes are logically correct and match the task requirements
-- [ ] No unexpected files were modified
-- [ ] Test cases cover meaningful scenarios, not just happy path
-- [ ] No hardcoded values that should be configuration
-- [ ] Performance characteristics are acceptable
-- [ ] The code is readable and maintainable
-
----
-
-## Phase 7: Session Management
-
-### During a Session
-
-```bash
-# Check what the system is doing
-npx copilot-loops status --watch
-
-# See recent log output
-npx copilot-loops logs --since 30m
-
-# Check which tasks are complete
-npx copilot-loops queue list
-```
-
-### Pausing the Session
-
-```bash
-# Gracefully pause (completes current task, then stops)
-npx copilot-loops stop
-
-# Pause a specific task without stopping the system
-npx copilot-loops queue pause TASK-44
-```
-
-### Resuming After a Break
-
-```bash
-# Check for any tasks that were left in mid-flight
-npx copilot-loops queue list
-
-# Resume any paused tasks
-npx copilot-loops queue resume TASK-44
-
-# Restart the system
-npx copilot-loops start --daemon
-```
-
-### Ending a Session
-
-```bash
-# Graceful stop
-npx copilot-loops stop
-
-# Review all PRs created during the session
-gh pr list --state open --label autonomous
-
-# Review any escalated tasks
-gh issue list --label needs-human
+.loop-alert.md が生成される
+  ↓
+内容を確認して判断する
+  ├─ 実装方針の指示が必要 → TASKS.md に詳細を追記して再実行
+  ├─ 設計変更が必要 → AGENTS.md を更新して再実行
+  └─ 手動対応が必要 → 対応後に TASKS.md を更新
 ```
 
 ---
 
-## Handling Edge Cases
+## 関連ドキュメント
 
-### Task Stuck in `in_progress`
-
-If a task has been in `in_progress` for more than 30 minutes:
-
-```bash
-# Check what's happening
-npx copilot-loops task logs TASK-42
-
-# Force reset and retry
-npx copilot-loops task reset TASK-42
-```
-
-### Build Loop in Infinite Retry Loop
-
-If you see the same error repeatedly:
-
-```bash
-# Pause the task
-npx copilot-loops queue pause TASK-42
-
-# Review the error context
-npx copilot-loops task context TASK-42
-
-# Add more context manually and retry
-npx copilot-loops task retry TASK-42 --add-context "See design doc at docs/auth-design.md for RS256 key format requirements"
-```
-
-### Escalating to Human Review
-
-```bash
-npx copilot-loops task escalate TASK-42 --reason "Requires architectural decision on token storage strategy"
-```
-
----
-
-## Related Documents
-
-- [Copilot Start Guide](copilot-start-guide.md)
-- [Loop Command Usage](loop-command-usage.md)
-- [Triple Loop Architecture](../architecture/triple-loop-architecture.md)
-- [Best Practices for Autonomous Sessions](../best-practices/autonomous-session-best-practices.md)
+- [起動ガイド](copilot-start-guide.md)
+- [ループコマンドリファレンス](loop-command-usage.md)
+- [Triple Loop アーキテクチャ](../architecture/triple-loop-architecture.md)
+- [Agent Teams システム](../architecture/agent-teams-system.md)
+- [ベストプラクティス](../best-practices/autonomous-session-best-practices.md)
